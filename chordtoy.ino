@@ -8,8 +8,9 @@
 #define LED_2 5
 #define LED_3 6
 #define ANALOG_READ_RESOLUTION 1053.0
-#define CHORD_VARIATIONS 11 // DX polyphony limit :-/
-
+#define CHORD_VARIATIONS 9 // DX polyphony limit :-/
+#define VOICES 6 // how many notes (not including root)
+#define POLY 4
 MIDI_CREATE_DEFAULT_INSTANCE();
 
 int chordSelection = 0;
@@ -29,14 +30,12 @@ const int chords[CHORD_VARIATIONS][7] = {
     {1, 1, 1, 0, 0, 0, 0}, 
     {1, 1, 0, 1, 0, 0, 0}, 
     {1, 1, 0, 0, 1, 0, 0}, 
-    {1, 1, 0, 0, 0, 1, 0}, 
-    {1, 1, 0, 0, 0, 0, 1}, 
+    {1, 1, 0, 0, 0, 1, 0},  
     {0, 1, 1, 1, 0, 0, 0}, 
     {0, 1, 1, 0, 1, 0, 0},
-    {0, 1, 1, 0, 0, 1, 0},
-    {0, 1, 1, 0, 0, 0, 1}}; 
-const int minorBank[] = {3, 7, 10, 14, 17, 21};
-int bank[] = {3, 7, 10, 14, 17, 21};
+    {0, 1, 1, 0, 0, 1, 0}}; 
+const byte minorBank[] = {3, 7, 10, 14, 17, 21};
+byte bank[] = {3, 7, 10, 14, 17, 21};
 //const int majorBank[] = {4, 7, 10, 12, 14, 18, 21};
 
 void setup() {
@@ -52,12 +51,7 @@ void setup() {
   
 }
 
-void loop() {
-
-  //figure out how to assign chords via pot / why not?
-  chordSelectTest();
-
-  
+void loop() {  
   currentMillis= millis();
   MIDI.read();
   if (currentMillis - pollPrevMillis >= pollInterval) {
@@ -78,9 +72,9 @@ void handleNoteOn(byte channel, byte pitch, byte velocity) {
   trig = true;
   // create chord to be played in here
   int j = 0;
-  for (int i = 0; i < 7; i ++ ) {
-    if (chords[chordSelection] == 1) {
-      thisChord[j] = bank[i];
+  for (int i = 0; i < VOICES; i ++ ) {
+    if (chords[chordSelection][i] == 1) {
+      thisChord[j] = bank[i] + pitch;
       j++;
     }
   }
@@ -92,51 +86,51 @@ void handleNoteOn(byte channel, byte pitch, byte velocity) {
 
 void handleNoteOff(byte channel, byte pitch, byte velocity) {
   MIDI.sendNoteOff(pitch, 0, channel);
-  for (int i = 0; i < 6; i ++ ) {
+  for (int i = 0; i < VOICES; i ++ ) {
     MIDI.sendNoteOff(pitch + bank[i], 0, channel);
   }
 }
 
-void assignBank(int minor[]) {
+void assignBank(byte minor[]) {
   // placeholder
   if (minor == true) {
-    for (int i = 0; i < 6; i++) {
+    for (int i = 0; i < VOICES; i++) {
       bank[i] = minorBank[i];
     }
   }
 }
 
-void chordSelectTest() {
-  int dur = 300;
-  if (digitalRead(TOGGLE_BUTTON) == HIGH) {
-    for (int i = 0; i < chordSelection; i++) {
-      digitalWrite(LED_1, HIGH);
-      digitalWrite(LED_2, HIGH);
-      digitalWrite(LED_3, HIGH);
-      delay(dur);
-      digitalWrite(LED_1, LOW);
-      digitalWrite(LED_2, LOW);
-      digitalWrite(LED_3, LOW);
-      delay(dur);
-    }
-    delay(5000);
-  }
-  
-}
-
-void potTest(int POT) {
-  int dur = analogRead(POT);
-  digitalWrite(LED_1, HIGH);
-  digitalWrite(LED_2, HIGH);
-  digitalWrite(LED_3, HIGH);
-  dur = analogRead(POT);
-  delay(dur);
-  dur = analogRead(POT);
-  digitalWrite(LED_1, LOW);
-  digitalWrite(LED_2, LOW);
-  digitalWrite(LED_3, LOW);
-  dur = analogRead(POT);
-  delay(dur);
-  dur = analogRead(POT);
-}
+//void chordSelectTest() {
+//  int dur = 300;
+//  if (digitalRead(TOGGLE_BUTTON) == HIGH) {
+//    for (int i = 0; i < chordSelection; i++) {
+//      digitalWrite(LED_1, HIGH);
+//      digitalWrite(LED_2, HIGH);
+//      digitalWrite(LED_3, HIGH);
+//      delay(dur);
+//      digitalWrite(LED_1, LOW);
+//      digitalWrite(LED_2, LOW);
+//      digitalWrite(LED_3, LOW);
+//      delay(dur);
+//    }
+//    delay(5000);
+//  }
+//  
+//}
+//
+//void potTest(int POT) {
+//  int dur = analogRead(POT);
+//  digitalWrite(LED_1, HIGH);
+//  digitalWrite(LED_2, HIGH);
+//  digitalWrite(LED_3, HIGH);
+//  dur = analogRead(POT);
+//  delay(dur);
+//  dur = analogRead(POT);
+//  digitalWrite(LED_1, LOW);
+//  digitalWrite(LED_2, LOW);
+//  digitalWrite(LED_3, LOW);
+//  dur = analogRead(POT);
+//  delay(dur);
+//  dur = analogRead(POT);
+//}
 
