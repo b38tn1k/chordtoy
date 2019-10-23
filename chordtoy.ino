@@ -15,6 +15,7 @@ MIDI_CREATE_DEFAULT_INSTANCE();
 
 int chordSelection = 0;
 byte thisChord[] = {0, 0, 0}; // DX polyphony limit
+byte prevChord[] = {0, 0, 0};
 int strumRate = 0;
 bool trig = false;
 byte chan, vel;
@@ -48,8 +49,11 @@ void setup() {
   MIDI.setHandleNoteOff(handleNoteOff);
   MIDI.begin(MIDI_CHANNEL_OMNI);
   assignBank(minorBank);
-  
+  pollInputs();
 }
+unsigned long trigPrevMillis;
+int cur = 0; 
+int curLim = 0;
 
 void loop() {  
   currentMillis= millis();
@@ -57,6 +61,12 @@ void loop() {
   if (currentMillis - pollPrevMillis >= pollInterval) {
     pollInputs();
     pollPrevMillis = currentMillis;
+  }
+
+  if ((currentMillis - trigPrevMillis >= strumRate) && (cur < curLim)) {
+    MIDI.sendNoteOn(thisChord[cur], vel, chan);
+    trigPrevMillis = currentMillis;
+    cur++;
   }
 }
 
@@ -67,6 +77,10 @@ void pollInputs() {
 }
 
 void handleNoteOn(byte channel, byte pitch, byte velocity) {
+  trigPrevMillis = millis();
+  clearNCopyChord(pitch);
+  cur = 0;
+  curLim = 0;
   chan = channel;
   vel = velocity;
   trig = true;
@@ -74,20 +88,18 @@ void handleNoteOn(byte channel, byte pitch, byte velocity) {
   int j = 0;
   for (int i = 0; i < VOICES; i ++ ) {
     if (chords[chordSelection][i] == 1) {
+      curLim++;
       thisChord[j] = bank[i] + pitch;
       j++;
     }
-  }
-  // test
-  for (int i = 0; i <3; i++) {
-    MIDI.sendNoteOn(thisChord[i], vel, chan); //test
   }
 }
 
 void handleNoteOff(byte channel, byte pitch, byte velocity) {
   MIDI.sendNoteOff(pitch, 0, channel);
   for (int i = 0; i < VOICES; i ++ ) {
-    MIDI.sendNoteOff(pitch + bank[i], 0, channel);
+    MIDI.sendNoteOff(thisChord[i], 0, channel);
+    MIDI.sendNoteOff(prevChord[i], 0, channel);
   }
 }
 
@@ -97,6 +109,13 @@ void assignBank(byte minor[]) {
     for (int i = 0; i < VOICES; i++) {
       bank[i] = minorBank[i];
     }
+  }
+}
+
+void clearNCopyChord(byte pitch) {
+  for (int i = 0; i < POLY; i++) {
+    prevChord[i] = thisChord[i];
+    thisChord[i] = pitch;
   }
 }
 
