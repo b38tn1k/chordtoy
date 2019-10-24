@@ -2,7 +2,9 @@
 
 not an arpeggiator :-P
 
-I wanted to play chords using the BeatStep Pro Sequencer. This sits in the MIDI chain between the sequencer and the synth and uses the incoming MIDI note to stack a chord.*
+[how to install arduino midi library](https://github.com/FortySevenEffects/arduino_midi_library)
+
+I wanted to play chords using the Arturia BeatStep Pro sequencer. This sits in the MIDI chain between the sequencer and the synth and uses the incoming MIDI note to stack a chord.*
 
 1 Switch: Choose between Major and Minor modes. Major mode has a dominant 7th rather than major 7th chord, I haven't used it much cause major scales are basic.
 
