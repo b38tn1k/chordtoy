@@ -2,6 +2,8 @@
 
 not an arpeggiator :-P
 
+[videos are easier than reading](https://youtu.be/XsruSs-3y8w)
+
 [how to install arduino midi library](https://github.com/FortySevenEffects/arduino_midi_library)
 
 I wanted to play chords using the Arturia BeatStep Pro sequencer. This sits in the MIDI chain between the sequencer and the synth and uses the incoming MIDI note to stack a chord.*
