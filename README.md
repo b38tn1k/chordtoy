@@ -17,7 +17,7 @@ I wanted to play chords using the BeatStep Pro Sequencer. This sits in the MIDI 
 GPIOs per the .ino sketch:
 ![Circuit Diagram](https://github.com/b38tn1k/chordtoy/blob/master/chordtoy_bb.png)
 
-Prototype using a Trinket (same pinouts as UNO):
+Prototype using a Pro Trinket (same pinouts as UNO):
 ![cat tax](https://github.com/b38tn1k/chordtoy/blob/master/cabbagecat.JPG)
 
-* Akai and Oberheim used to make boxes that did this sort of thing and this functionality is now built into heaps of DAWs, possible some synths. my Yamaha DX doesn't
+\* Akai and Oberheim used to make boxes that did this sort of thing and this functionality is now built into heaps of DAWs, possible some synths. my Yamaha DX doesn't
