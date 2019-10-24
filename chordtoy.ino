@@ -5,7 +5,6 @@
 #define RATE_POT 3
 #define LED_1 4
 #define LED_2 5
-#define LED_3 6
 #define ANALOG_READ_RESOLUTION 1053.0
 #define CHORD_VARIATIONS 15 // DX polyphony limit :-/
 #define VOICES 7 // how many notes (not including root)
