@@ -195,20 +195,20 @@ void handleNoteOn(byte channel, byte pitch, byte velocity) {
   vel = velocity;
   trig = true;
   // create chord to be played in here
-  // first in standard shape
-  int pos = noteInScale(pitch);
-  pos = -1;
-  if (pos == -1) {
-    // note not in scale
-    int j = 0;
-    for (int i = 0; i < VOICES; i ++ ) {
-      if (chords[chordSelection][i] == 1) {
-        curLim++;
-        thisChord[j] = bank[i] + pitch;
-        j++;
-      }
+  // first in standard shape, pretend it not in the scale
+  // note not in scale
+  int j = 0;
+  for (int i = 0; i < VOICES; i ++ ) {
+    if (chords[chordSelection][i] == 1) {
+      curLim++;
+      thisChord[j] = bank[i] + pitch;
+      j++;
     }
-  } else {
+  }
+
+  ///HERE, something wrong in the scale generation? test that then this
+  int pos = noteInScale(pitch);
+  if (pos != -1) {
     //note in scale
     int k = 0;
     pos += 2;
