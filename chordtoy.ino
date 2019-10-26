@@ -54,7 +54,6 @@ bool prevMode;
 void setup() {
   pinMode(LED_1, OUTPUT);
   pinMode(LED_2, OUTPUT);
-  pinMode(LED_3, OUTPUT);
   pinMode(MODE_SWITCH, INPUT);
   MIDI.setHandleNoteOn(handleNoteOn);
   MIDI.setHandleNoteOff(handleNoteOff);
