@@ -141,9 +141,6 @@ void pollInputs() {
   float invSensorVal =analogRead(INVERSION_POT);
   inversionSelection = int(invSensorVal * (INVERSION_COUNT/ANALOG_READ_RESOLUTION));
   
-  //testing key
-  inversionSelection = 0;
-  
   analogRead(KEY_POT);
   float keySensorVal = analogRead(KEY_POT);
   key = int(keySensorVal * (THERE_ARE_12_NOTES_IN_WESTERN_MUSIC/ANALOG_READ_RESOLUTION));
