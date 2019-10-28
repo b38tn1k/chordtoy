@@ -1,5 +1,4 @@
 #include <MIDI.h>
-#include "largeConstants.h"
 #define MODE_SWITCH 13
 #define CHORD_POT 1
 #define INVERSION_POT 2
@@ -13,8 +12,7 @@
 #define POLY 4
 #define INVERSION_COUNT 6//hmm
 #define THERE_ARE_12_NOTES_IN_WESTERN_MUSIC 12
-#define MIDI_ROOT_NOTE_OFFSET 9 //an octave below A0
-#define MIDI_RANGE_WITH_SCALE 81 // approx how bit our scale map array should be (72 notes in 9 octaves + the onw below)
+#define MIDI_RANGE_WITH_SCALE 71
 MIDI_CREATE_DEFAULT_INSTANCE();
 
 int chordSelection = 0;
@@ -37,10 +35,6 @@ int key = 0; //A = 0, Bb = 1, B = 2, ...
 int keyCounter = 0;
 long keyLEDPrevMillis = 0;
 bool keyLEDStatus = false;
-// T S T T S T T
-const byte minorScaleShape[] = {2, 1, 2, 2, 1, 2, 2};
-const byte majorScaleShape[] = {2, 2, 1, 2, 2, 2, 1};
-byte scaleShape[] = {2, 1, 2, 2, 1, 2, 2};
 byte scale[MIDI_RANGE_WITH_SCALE];
 const int inversions[INVERSION_COUNT][POLY-1] = {{0, 0, 0}, {0, 0, -12}, {-12, 0, 0}, {-12, -12, 0}, {0, -12, -12}, {-12, -12, -12}};
 
@@ -66,7 +60,7 @@ const int chords[CHORD_VARIATIONS][VOICES] = {
 const byte minorBank[] = {3, 7, 10, 14, 17, 21};
 byte bank[VOICES];
 const byte majorBank[] = {4, 7, 10, 12, 14, 17};
-bool modeState;
+bool isMinor;
 bool prevMode;
 
 void setup() {
@@ -78,7 +72,7 @@ void setup() {
   MIDI.begin(1);
   pollInputs();
   toggleBank();
-  prevMode = modeState;
+  prevMode = isMinor;
   prevKey = key;
 }
 
@@ -95,13 +89,13 @@ void loop() {
     trigPrevMillis = currentMillis;
     cur++;
   }
-  if (prevMode != modeState) {
+  if (prevMode != isMinor) {
     toggleBank();
-    prevMode = modeState;
+    prevMode = isMinor;
   }
   // this is just to flash the stupid LED so you know what key!
   if (key != prevKey) {
-    keyCounter = (key) * 2;
+    keyCounter = (key + 1) * 2;
     prevKey = key;
     keyLEDStatus = false;
     digitalWrite(activeLED, keyLEDStatus);
@@ -116,8 +110,9 @@ void loop() {
   }
 }
 
+
 void toggleBank() {
-  if (modeState == true) {
+  if (isMinor == true) {
     assignBank(minorBank);
     activeLED = LED_1;
     inactiveLED = LED_2;
@@ -131,7 +126,7 @@ void toggleBank() {
 }
 
 void pollInputs() {
-  modeState = digitalRead(MODE_SWITCH);
+  isMinor = digitalRead(MODE_SWITCH);
   
   analogRead(RATE_POT);
   strumRate = long(analogRead(RATE_POT)); 
@@ -172,8 +167,41 @@ void handleNoteOn(byte channel, byte pitch, byte velocity) {
       j++;
     }
   }
+  
+  // rebuild in key maybe
+  // bring it all the way to 0..12 range
+  int lowNote = int(pitch) % 12;
+  // figure out if it is in the scale;
+  if ((lowNote - key) < 0) {lowNote += 12;}
+  int interval = lowNote - key;
+  
+  // in a natural minor scale, the diatonic chords for iii, vi and vii are major
+  if (isMinor == true && interval == 3 || interval == 5 || interval == 10) {
+    curLim = 0;
+    j = 0;
+    for (int i = 0; i < VOICES; i ++ ) {
+      if (chords[chordSelection][i] == 1) {
+        curLim++;
+        thisChord[j] = majorBank[i] + pitch;
+        j++;
+      }
+    }
+  }
 
+  // in a major scale, the diatonic chords for ii, iii and vi are minor
+  if (isMinor == false && interval == 2 || interval == 4 || interval == 9) {
+    curLim = 0;
+    j = 0;
+    for (int i = 0; i < VOICES; i ++ ) {
+      if (chords[chordSelection][i] == 1) {
+        curLim++;
+        thisChord[j] = minorBank[i] + pitch;
+        j++;
+      }
+    }
+  }
 
+  // both have diminished chords but icbf
   // then apply inversion
   for (int k = 0; k < curLim; k++) {
     thisChord[k] = byte(int(thisChord[k]) + inversions[inversionSelection][k]);
@@ -195,44 +223,16 @@ void assignBank(byte _bank[]) {
     }
 }
 
+void clearChord(byte pitch) {
+  for (int i = 0; i < POLY; i++) {
+    thisChord[i] = pitch;
+  }
+}
+
 void clearNCopyChord(byte pitch) {
   for (int i = 0; i < POLY; i++) {
     prevChord[i] = thisChord[i];
     thisChord[i] = pitch;
   }
 }
-
-//void chordSelectTest() {
-//  int dur = 300;
-//  if (digitalRead(TOGGLE_BUTTON) == HIGH) {
-//    for (int i = 0; i < chordSelection; i++) {
-//      digitalWrite(LED_1, HIGH);
-//      digitalWrite(LED_2, HIGH);
-//      digitalWrite(LED_3, HIGH);
-//      delay(dur);
-//      digitalWrite(LED_1, LOW);
-//      digitalWrite(LED_2, LOW);
-//      digitalWrite(LED_3, LOW);
-//      delay(dur);
-//    }
-//    delay(5000);
-//  }
-//  
-//}
-//
-//void potTest(int POT) {
-//  int dur = analogRead(POT);
-//  digitalWrite(LED_1, HIGH);
-//  digitalWrite(LED_2, HIGH);
-//  digitalWrite(LED_3, HIGH);
-//  dur = analogRead(POT);
-//  delay(dur);
-//  dur = analogRead(POT);
-//  digitalWrite(LED_1, LOW);
-//  digitalWrite(LED_2, LOW);
-//  digitalWrite(LED_3, LOW);
-//  dur = analogRead(POT);
-//  delay(dur);
-//  dur = analogRead(POT);
-//}
 
