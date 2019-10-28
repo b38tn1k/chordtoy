@@ -101,12 +101,11 @@ void loop() {
   }
   // this is just to flash the stupid LED so you know what key!
   if (key != prevKey) {
-    buildScale();
-    keyCounter = (key + 1) * 2;
+    keyCounter = (key) * 2;
     prevKey = key;
     keyLEDStatus = false;
     digitalWrite(activeLED, keyLEDStatus);
-    keyLEDPrevMillis = currentMillis + 1000;
+    keyLEDPrevMillis = currentMillis + 200;
     
   }
   if ((currentMillis-keyLEDPrevMillis>=200)&&(keyCounter >= 0)) {
@@ -117,47 +116,14 @@ void loop() {
   }
 }
 
-int noteInScale(byte _note) {
-  int note = int(_note);
-  int pos = -1;
-  for (int i = 0; i < MIDI_RANGE_WITH_SCALE; i++) {
-    if (note == scale[i]) {
-      pos = i;
-      break;
-    }
-  }
-  return pos;
-}
-
-void buildScale() {
-  int root = key + MIDI_ROOT_NOTE_OFFSET;
-  scale[0] = root;
-  int j = 0;
-  for (int i = 1; i < MIDI_RANGE_WITH_SCALE; i++) {
-    scale[i] = scale[i-1] + scaleShape[j];
-    j += 1;
-    j = j % 7;
-  }
-}
-
-void changeShape(byte _bank[]) {
-    for (int i = 0; i < 7; i++) {
-      scaleShape[i] = _bank[i];
-    }
-}
-
 void toggleBank() {
   if (modeState == true) {
     assignBank(minorBank);
-    changeShape(minorScaleShape);
-    buildScale();
     activeLED = LED_1;
     inactiveLED = LED_2;
   } else {
     inactiveLED = LED_1;
     activeLED = LED_2;
-    changeShape(majorScaleShape);
-    buildScale();
     assignBank(majorBank);
   }
   digitalWrite(activeLED, HIGH);
@@ -166,19 +132,24 @@ void toggleBank() {
 
 void pollInputs() {
   modeState = digitalRead(MODE_SWITCH);
-  strumRate = long(analogRead(RATE_POT));
+  
+  analogRead(RATE_POT);
   strumRate = long(analogRead(RATE_POT)); 
   strumRate = strumRate/3;
+  
+  analogRead(CHORD_POT);
   float chordSensorVal = analogRead(CHORD_POT);
-  chordSensorVal = analogRead(CHORD_POT);
   chordSelection =  int(chordSensorVal * (CHORD_VARIATIONS/ANALOG_READ_RESOLUTION));
-  float invSensorVal = analogRead(INVERSION_POT);
-  invSensorVal = analogRead(INVERSION_POT);
+  
+  analogRead(INVERSION_POT);
+  float invSensorVal =analogRead(INVERSION_POT);
   inversionSelection = int(invSensorVal * (INVERSION_COUNT/ANALOG_READ_RESOLUTION));
+  
   //testing key
   inversionSelection = 0;
+  
+  analogRead(KEY_POT);
   float keySensorVal = analogRead(KEY_POT);
-  keySensorVal = analogRead(KEY_POT);
   key = int(keySensorVal * (THERE_ARE_12_NOTES_IN_WESTERN_MUSIC/ANALOG_READ_RESOLUTION));
 }
 
@@ -202,17 +173,7 @@ void handleNoteOn(byte channel, byte pitch, byte velocity) {
     }
   }
 
-  ///reshape the chord if it is in the scale
-  int pos = noteInScale(pitch);
-  if (pos != -1) {
-    //note in scale
-    pos += 2;
-    for (int j = 0; j < VOICES; j++) {
-      thisChord[j] = scale[pos];
-      j+=1;
-      pos += 2; //triads
-    } 
-  }
+
   // then apply inversion
   for (int k = 0; k < curLim; k++) {
     thisChord[k] = byte(int(thisChord[k]) + inversions[inversionSelection][k]);
