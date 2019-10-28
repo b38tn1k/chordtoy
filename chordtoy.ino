@@ -57,8 +57,9 @@ const int chords[CHORD_VARIATIONS][VOICES] = {
     {0, 1, 0, 1, 0, 1}
     };
 
-const byte minorBank[] = {3, 7, 10, 14, 17, 21};
 byte bank[VOICES];
+const byte minorBank[] = {3, 7, 10, 14, 17, 21};
+const byte dimBank[] = {3, 6, 12, 15, 18, 24};
 const byte majorBank[] = {4, 7, 10, 12, 14, 17};
 bool isMinor;
 bool prevMode;
@@ -188,6 +189,19 @@ void handleNoteOn(byte channel, byte pitch, byte velocity) {
     }
   }
 
+    // in a natural minor scale, the ii is diminished
+  if (isMinor == true && interval == 2) {
+    curLim = 0;
+    j = 0;
+    for (int i = 0; i < VOICES; i ++ ) {
+      if (chords[chordSelection][i] == 1) {
+        curLim++;
+        thisChord[j] = dimBank[i] + pitch;
+        j++;
+      }
+    }
+  }
+
   // in a major scale, the diatonic chords for ii, iii and vi are minor
   if (isMinor == false && interval == 2 || interval == 4 || interval == 9) {
     curLim = 0;
@@ -196,6 +210,19 @@ void handleNoteOn(byte channel, byte pitch, byte velocity) {
       if (chords[chordSelection][i] == 1) {
         curLim++;
         thisChord[j] = minorBank[i] + pitch;
+        j++;
+      }
+    }
+  }
+
+  // major has diminished vii
+  if (isMinor == false && interval == 11) {
+    curLim = 0;
+    j = 0;
+    for (int i = 0; i < VOICES; i ++ ) {
+      if (chords[chordSelection][i] == 1) {
+        curLim++;
+        thisChord[j] = dimBank[i] + pitch;
         j++;
       }
     }
