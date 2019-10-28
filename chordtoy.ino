@@ -74,7 +74,6 @@ void setup() {
   pinMode(MODE_SWITCH, INPUT);
   MIDI.setHandleNoteOn(handleNoteOn);
   MIDI.setHandleNoteOff(handleNoteOff);
-//  MIDI.begin(MIDI_CHANNEL_OMNI);
   MIDI.begin(1);
   pollInputs();
   toggleBank();
@@ -119,12 +118,8 @@ void loop() {
 
 int noteInScale(byte _note) {
   int note = int(_note);
-  int start = 0;
-  if (note > 60) {
-    start = (MIDI_RANGE_WITH_SCALE/2) - 8;
-  }
   int pos = -1;
-  for (int i = start; i < MIDI_RANGE_WITH_SCALE; i++) {
+  for (int i = 0; i < MIDI_RANGE_WITH_SCALE; i++) {
     if (note == scale[i]) {
       pos = i;
       break;
@@ -140,7 +135,7 @@ void buildScale() {
   for (int i = 1; i < MIDI_RANGE_WITH_SCALE; i++) {
     scale[i] = scale[i-1] + scaleShape[j];
     j += 1;
-    j = j % THERE_ARE_12_NOTES_IN_WESTERN_MUSIC;
+    j = j % 7;
   }
 }
 
@@ -206,15 +201,14 @@ void handleNoteOn(byte channel, byte pitch, byte velocity) {
     }
   }
 
-  ///HERE, something wrong in the scale generation? test that then this
+  ///reshape the chord if it is in the scale
   int pos = noteInScale(pitch);
   if (pos != -1) {
     //note in scale
-    int k = 0;
     pos += 2;
-    while (k < VOICES) {
-      thisChord[k] = scale[pos];
-      k+=1;
+    for (int j = 0; j < VOICES; j++) {
+      thisChord[j] = scale[pos];
+      j+=1;
       pos += 2; //triads
     } 
   }
