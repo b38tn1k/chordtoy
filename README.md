@@ -10,7 +10,9 @@ I wanted to play chords using the Arturia BeatStep Pro sequencer. This sits in t
 
 1 Switch: Choose between Major and Minor modes. Major mode has a dominant 7th rather than major 7th chord, I haven't used it much cause major scales are basic.
 
-3 Pots:
+4 Pots:
+
+- Key Selector: Choose the key, other chords are mapped to scale for diatonic chords (I hope/think)
 
 - Chord Selector: Starting with the root note, add more notes to create a more complex sound. I tried to group the less complex sounds at low values and the more extreme sounds at high values. So, in Minor mode you can turn up to go from one note to a power chord to a minor chord to a minor 7, 9th, 11th, 13th.. with a couple more variations.
 
@@ -21,7 +23,7 @@ I wanted to play chords using the Arturia BeatStep Pro sequencer. This sits in t
 GPIOs per the .ino sketch:
 ![Circuit Diagram](https://github.com/b38tn1k/chordtoy/blob/master/chordtoy_bb.png)
 
-Prototype using a Pro Trinket (same pinouts as UNO):
+Prototype using a Pro Trinket (same pinouts as UNO) before I made it diatonic:
 ![cat tax](https://github.com/b38tn1k/chordtoy/blob/master/cabbagecat.JPG)
 
 \* Akai and Oberheim used to make boxes that did this sort of thing and this functionality is now built into heaps of DAWs, possible some synths. my Yamaha DX doesn't
