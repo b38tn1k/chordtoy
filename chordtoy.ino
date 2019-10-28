@@ -1,4 +1,5 @@
 #include <MIDI.h>
+#include "largeConstants.h"
 #define MODE_SWITCH 13
 #define CHORD_POT 1
 #define INVERSION_POT 2
