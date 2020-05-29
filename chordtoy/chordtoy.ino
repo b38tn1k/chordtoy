@@ -70,7 +70,7 @@ void setup() {
   pinMode(MODE_SWITCH, INPUT);
   MIDI.setHandleNoteOn(handleNoteOn);
   MIDI.setHandleNoteOff(handleNoteOff);
-  MIDI.begin(1);
+  MIDI.begin(3);
   pollInputs();
   toggleBank();
   prevMode = isMinor;
