@@ -2,6 +2,9 @@
 
 not an arpeggiator :-P
 
+I am not that great at building cases, here are my v1 and v2 prototypes.
+![no cat :(](https://github.com/b38tn1k/chordtoy/blob/master/nocabbagecat.jpg)
+
 [videos are easier than reading](https://youtu.be/XsruSs-3y8w)
 
 [how to install arduino midi library](https://github.com/FortySevenEffects/arduino_midi_library)

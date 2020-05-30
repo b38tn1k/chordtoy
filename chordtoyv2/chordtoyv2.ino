@@ -143,6 +143,10 @@ void loop() {
     bypassDebounce = bypass;
     digitalWrite(activeLED, HIGH);
     digitalWrite(inactiveLED, LOW);
+    for (int k = 0; k < MAXIMUM_CHORD_SIZE; k++) {
+      MIDI.sendNoteOff(secondChord[k], 0, MIDI_SECOND_CHANNEL); //clear out channel, faster than doing all notes every time which has a noticable lag
+      secondChord[k] = 0;
+    }
   }
   if (legatoDebounce != legato) {
     handleNoteOff(MIDI_MASTER_CHANNEL, 0, 0); //hmm, just try clear it out
