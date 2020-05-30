@@ -8,7 +8,7 @@ not an arpeggiator :-P
 
 I wanted to play chords using the Arturia BeatStep Pro sequencer. This sits in the MIDI chain between the sequencer and the synth and uses the incoming MIDI note to stack a chord.*
 
-## Version 
+## Version 1
 
 1 Switch: Choose between Major and Minor modes. Major mode has a dominant 7th rather than major 7th chord, I haven't used it much cause major scales are basic.
 
@@ -27,6 +27,8 @@ I wanted to play chords using the Arturia BeatStep Pro sequencer. This sits in t
 Version 2 has all the features of Version 1, and these additions:
 
 - a Legato Switch changes the way MIDI noteoff messages are sent, allowing the strummed chord to ring out from a trigger or be cut short.
+
+- a Bypass Switch, turn off the effect and this just becomes a 1:2 MIDI splitter. More useful than turning everything down as in V1.
 
 - a Second MIDI Channel. I am using two DIN/MIDI plugs driven from an Uno's Tx port and it works ok. The Master MIDI channel is the same as the recieving channel and does the 'strumming' chord effect. The second channel is used to transmit block chords with the same notes as the Master chord, but with its own unique settings. It works nicely with my (newish) Behringer Crave in arp mode, giving me a 'free time' chord flourish from the DX and accompanying in time Arpeggios from the Crave. If you dont want the second channel stuff just don't connect the hardware and it should be fine, maybe tie the 'chord size' analog pin to ground :)
 
