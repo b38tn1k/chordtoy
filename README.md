@@ -13,7 +13,7 @@ I wanted to play chords using the Arturia BeatStep Pro sequencer. This sits in t
 
 ## Version 1
 
-1 Switch: Choose between Major and Minor modes. Major mode has a dominant 7th rather than major 7th chord, I haven't used it much cause major scales are basic.
+1 Switch: Choose between **Major and Minor modes**. Major mode has a dominant 7th rather than major 7th chord, I haven't used it much cause major scales are basic.
 
 4 Pots:
 
