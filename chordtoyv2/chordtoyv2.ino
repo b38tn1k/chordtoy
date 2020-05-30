@@ -1,4 +1,7 @@
 #include <MIDI.h>
+//So this one does two MIDI channels, just connect two MIDI plugs to the output of the arduino, it should provide enough power
+//or look for a blog on how to do it properly :-D
+
 //IO for pots and switches
 #define MAJOR_MINOR 11        //switch for major / minor
 #define CHORD_POT 4           //pot to scroll throguh various chord shapes
@@ -8,13 +11,15 @@
 #define LED_1 13              //major or minor signifier? IDK
 #define LED_2 12              //major or minor signifier? IDK
 #define BYPASS_SWITCH 10      //just pass normal MIDI through
-#define LEGATO_SWITCH 9       //change note off mode a bit, also its not really legato, is something else idk
+#define LEGATO_SWITCH 9       //change note off mode a bit, also its not really legato, is something else 
+#define INV_POT2 2            //pot to scroll through inversions for slave channel
+#define SIZE_POT 3            //pot to increase size of chord for slave channel through addition of octaves above and below
 
 // MIDI SETTINGS
 #define MIDI_MASTER_CHANNEL 3 //the strum channel
-#define MIDI_SLAVE_CHANNEL 5  //the pad or arp channel
+#define MIDI_SLAVE_CHANNEL 5  //the pad or arp channel,
 
-//I dont think you need to worry about any other settings
+//I dont think you need to worry about any other settings unless you wanna make some improvements
 #define ANALOG_READ_RESOLUTION 1053.0
 #define CHORD_VARIATIONS 15 // DX polyphony limit :-/
 #define VOICES 7 // how many notes (not including root)
@@ -22,11 +27,14 @@
 #define INVERSION_COUNT 6//hmm
 #define THERE_ARE_12_NOTES_IN_WESTERN_MUSIC 12
 #define MIDI_RANGE_WITH_SCALE 71
+#define MAXIMUM_CHORD_SIZE 12 //that's pretty big though
 MIDI_CREATE_DEFAULT_INSTANCE();
 
 int chordSelection = 0;
 int inversionSelection = 0;
-byte thisChord[] = {0, 0, 0}; // DX polyphony limit
+int inversionSelection2 = 0;
+byte thisChord[] = {0, 0, 0}; // DX polyphony limit //v2 update, turns up polyphony limit on the DX is more than 4, i cant remember how much more. 
+byte slaveChord[] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}; // 12 notes and then major/minor, chord value, inversion, size
 byte prevChord[] = {0, 0, 0};
 unsigned long strumRate = 0;
 bool trig = false;
@@ -47,6 +55,8 @@ bool keyLEDStatus = false;
 bool bypass = false;
 bool bypassDebounce = false;
 bool legato = false;
+bool legatoDebounce = false;
+int chordSize = 0;
 byte scale[MIDI_RANGE_WITH_SCALE];
 const int inversions[INVERSION_COUNT][POLY-1] = {{0, 0, 0}, {0, 0, -12}, {-12, 0, 0}, {-12, -12, 0}, {0, -12, -12}, {-12, -12, -12}};
 //Reface DX Polyphony
@@ -134,6 +144,10 @@ void loop() {
     digitalWrite(activeLED, HIGH);
     digitalWrite(inactiveLED, LOW);
   }
+  if (legatoDebounce != legato) {
+    handleNoteOff(MIDI_MASTER_CHANNEL, 0, 0); //hmm, just try clear it out
+    legatoDebounce = legato;
+  }
 }
 
 
@@ -167,10 +181,18 @@ void pollInputs() {
   analogRead(INV_POT1);
   float invSensorVal =analogRead(INV_POT1);
   inversionSelection = int(invSensorVal * (INVERSION_COUNT/ANALOG_READ_RESOLUTION));
+
+  analogRead(INV_POT2);
+  invSensorVal =analogRead(INV_POT2);
+  inversionSelection2 = int(invSensorVal * (INVERSION_COUNT/ANALOG_READ_RESOLUTION));
   
   analogRead(KEY_POT);
   float keySensorVal = analogRead(KEY_POT);
   key = int(keySensorVal * (THERE_ARE_12_NOTES_IN_WESTERN_MUSIC/ANALOG_READ_RESOLUTION));
+
+  analogRead(SIZE_POT);
+  float chordSizeVal = analogRead(SIZE_POT);
+  chordSize =int(chordSizeVal * (MAXIMUM_CHORD_SIZE/ANALOG_READ_RESOLUTION));
 }
 
 void handleNoteOn(byte channel, byte pitch, byte velocity) {
@@ -252,12 +274,47 @@ void handleNoteOn(byte channel, byte pitch, byte velocity) {
         }
       }
     }
-  
+
+    
     // both have diminished chords but icbf
-    // then apply inversion
-    for (int k = 0; k < curLim; k++) {
-      thisChord[k] = byte(int(thisChord[k]) + inversions[inversionSelection][k]);
+    
+
+    //if there are any changes to the slave chord then...
+    if (!(slaveChord[0] == pitch && slaveChord[12] == inversionSelection2 && slaveChord[13] == byte(isMinor) && slaveChord[14] == chordSize && slaveChord[15] == chordSelection)){
+      //clear out Slave Block Chord Stuff
+      for (int k = 0; k < MAXIMUM_CHORD_SIZE; k++) {
+        MIDI.sendNoteOff(slaveChord[k], 0, MIDI_SLAVE_CHANNEL); //clear out channel, faster than doing all notes every time which has a noticable lag
+      }
+      slaveChord[0] = pitch;
+      slaveChord[12] = inversionSelection2;
+      slaveChord[13] = int(isMinor);
+      slaveChord[14] = chordSize;
+      slaveChord[15] = chordSelection;
+      
+      
+      // slave chord w/ inversion
+      for (int k = 0; k < curLim; k++) {
+        slaveChord[k+1] = byte(int(thisChord[k]) + inversions[inversionSelection2][k]);
+      }
+      //this could be done in a loop but I like this arrangment so...
+      slaveChord[4] = byte(slaveChord[0] + 12);
+      slaveChord[5] = byte(slaveChord[0] - 12);
+      slaveChord[6] = byte(slaveChord[1] + 12);
+      slaveChord[7] = byte(slaveChord[1] - 12);
+      slaveChord[8] = byte(slaveChord[2] + 12);
+      slaveChord[9] = byte(slaveChord[2] - 12);
+      slaveChord[10] = byte(slaveChord[3] + 12);
+      slaveChord[11] = byte(slaveChord[3] - 12);
+      
+      for (int k = 0; k < chordSize; k++) {
+        MIDI.sendNoteOn(slaveChord[k], velocity, MIDI_SLAVE_CHANNEL);
+      }
     }
+    // apply inversion
+    for (int k = 0; k < curLim; k++) {
+        thisChord[k] = byte(int(thisChord[k]) + inversions[inversionSelection][k]);
+      }
+      
   } else {
     MIDI.sendNoteOn(pitch, velocity, channel);
   }
