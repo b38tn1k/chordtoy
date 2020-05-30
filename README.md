@@ -8,6 +8,8 @@ not an arpeggiator :-P
 
 I wanted to play chords using the Arturia BeatStep Pro sequencer. This sits in the MIDI chain between the sequencer and the synth and uses the incoming MIDI note to stack a chord.*
 
+## Version 
+
 1 Switch: Choose between Major and Minor modes. Major mode has a dominant 7th rather than major 7th chord, I haven't used it much cause major scales are basic.
 
 4 Pots:
@@ -20,8 +22,23 @@ I wanted to play chords using the Arturia BeatStep Pro sequencer. This sits in t
 
 - Strum Rate: When I first made this I just wanted to play simple block chords for techno-y sounding stabs on the DX. By accident I realized that the strummed chord can sound really nice and give some movement to a beat. Rhythms like like Legowelt or Flying Lotus... so at one extreme the chord plays all at once. At the other extreme the notes are plucked out one at a time slowly. Yes, like an arpeggiator. but no repeating or syncing cause I have a BeatStep that can keep time and play arpeggios :-)
 
-GPIOs per the .ino sketch:
+## Version 2
+
+Version 2 has all the features of Version 1, and these additions:
+
+- a Legato Switch changes the way MIDI noteoff messages are sent, allowing the strummed chord to ring out from a trigger or be cut short.
+
+- a Second MIDI Channel. I am using two DIN/MIDI plugs driven from an Uno's Tx port and it works ok. The Master MIDI channel is the same as the recieving channel and does the 'strumming' chord effect. The second channel is used to transmit block chords with the same notes as the Master chord, but with its own unique settings. It works nicely with my (newish) Behringer Crave in arp mode, giving me a 'free time' chord flourish from the DX and accompanying in time Arpeggios from the Crave. If you dont want the second channel stuff just don't connect the hardware and it should be fine, maybe tie the 'chord size' analog pin to ground :)
+
+- Second Inversion Mode: as above but for the second MIDI Channel, and with notes shifted 2 octaves cause I like it more.
+
+- Chord Size: increase the number of notes in the block chord by adding octaves above and below.
+
+## Building
+
+Version 1 GPIOs per the .ino sketch:
 ![Circuit Diagram](https://github.com/b38tn1k/chordtoy/blob/master/chordtoy_bb.png)
+Version 2 is similar with pot and switch IOs listed at top of the .ino file.
 
 Prototype using a Pro Trinket (same pinouts as UNO) before I made it diatonic:
 ![cat tax](https://github.com/b38tn1k/chordtoy/blob/master/cabbagecat.JPG)
