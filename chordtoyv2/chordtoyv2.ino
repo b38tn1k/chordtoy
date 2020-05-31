@@ -14,6 +14,7 @@
 #define LEGATO_SWITCH 9       //change note off mode a bit, also its not really legato, is something else 
 #define INV_POT2 2            //pot to scroll through inversions for second channel
 #define SIZE_POT 3            //pot to increase size of chord for second channel through addition of octaves above and below
+#define TRNSPS_2ND_CHAN -24   //just my taste
 
 // MIDI SETTINGS
 #define MIDI_MASTER_CHANNEL 3 //the strum channel
@@ -92,7 +93,7 @@ void setup() {
   pinMode(LEGATO_SWITCH, INPUT);
   MIDI.setHandleNoteOn(handleNoteOn);
   MIDI.setHandleNoteOff(handleNoteOff);
-  MIDI.begin(MIDI_MASTER_CHANNEL);
+  MIDI.begin(MIDI_MASTER_CHANNEL); //bypass only works with this one channel. TODO: research MIDI Library more
   pollInputs();
   toggleBank();
   prevMode = isMinor;
@@ -292,7 +293,7 @@ void handleNoteOn(byte channel, byte pitch, byte velocity) {
       secondChord[0] = pitch;
       // w/ inversion
       for (int k = 0; k < curLim; k++) {
-        secondChord[k+1] = byte(int(thisChord[k]) + 2*(inversions[inversionSelection2][k]));
+        secondChord[k+1] = byte(int(thisChord[k] + TRNSPS_2ND_CHAN) + 2*(inversions[inversionSelection2][k]));
       }
       //this could be done in a loop but I like this arrangment so...
       secondChord[4] = byte(secondChord[0] + 12);
