@@ -1,5 +1,7 @@
 # chordtoy
 
+This version will work with multiple individual MIDI input channels - one input channel for Pad/Arp function, and another input channel for the Strum routines. Also cleans up some of the Note Off routines.
+
 not an arpeggiator :-P
 
 I am not that great at building cases, here are my v1 and v2 prototypes.
