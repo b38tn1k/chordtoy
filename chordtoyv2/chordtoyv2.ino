@@ -285,7 +285,7 @@ void handleNoteOn(byte channel, byte pitch, byte velocity) {
   
       //if there are any changes to the second chord then...
       bool noChanges = (secondChord[0] == pitch && secondChord[12] == inversionSelection2 && secondChord[13] == byte(isMinor) && secondChord[14] == chordSize && secondChord[15] == chordSelection);
-      if (noChanges == false){
+//      if (noChanges == false){
         for (int k = 0; k < MAXIMUM_CHORD_SIZE; k++) {
           MIDI.sendNoteOff(secondChord[k], 0, MIDI_BLOCK_CHORD_CHANNEL); //clear out channel, faster than doing all notes every time which has a noticable lag
         }
@@ -314,7 +314,7 @@ void handleNoteOn(byte channel, byte pitch, byte velocity) {
           MIDI.sendNoteOn(secondChord[k], velocity, MIDI_BLOCK_CHORD_CHANNEL);
           Serial.flush();
         }
-      }
+//      }
   
       // apply inversion
       for (int k = 0; k < curLim; k++) {
