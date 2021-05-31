@@ -17,8 +17,9 @@
 #define TRNSPS_2ND_CHAN -24   //just my taste
 
 // MIDI SETTINGS
-#define MIDI_STRUM_CHANNEL 3 //the strum channel
-#define MIDI_BLOCK_CHORD_CHANNEL 5  //the pad or arp channel,
+#define MIDI_STRUM_CHANNEL 3 //the strum channel, does not trigger BLOCK CHORD CHANNEL
+#define MIDI_BLOCK_CHORD_CHANNEL 5  //the pad or arp channel, triggers STRUM channel also
+//only send over either 3 or 5 - sending over both will result in "jazz"... TODO: fix this
 
 //I dont think you need to worry about any other settings unless you wanna make some improvements
 #define ANALOG_READ_RESOLUTION 1053.0
@@ -282,39 +283,40 @@ void handleNoteOn(byte channel, byte pitch, byte velocity) {
           }
         }
       }
-  
-      //if there are any changes to the second chord then...
-      bool noChanges = (secondChord[0] == pitch && secondChord[12] == inversionSelection2 && secondChord[13] == byte(isMinor) && secondChord[14] == chordSize && secondChord[15] == chordSelection);
-//      if (noChanges == false){
-        for (int k = 0; k < MAXIMUM_CHORD_SIZE; k++) {
-          MIDI.sendNoteOff(secondChord[k], 0, MIDI_BLOCK_CHORD_CHANNEL); //clear out channel, faster than doing all notes every time which has a noticable lag
-        }
-        // second chord 
-        secondChord[0] = pitch;
-        // w/ inversion
-        for (int k = 0; k < curLim; k++) {
-          secondChord[k+1] = byte(int(thisChord[k] + TRNSPS_2ND_CHAN) + 2*(inversions[inversionSelection2][k]));
-        }
-        //this could be done in a loop but I like this arrangment so...
-        secondChord[4] = byte(secondChord[0] + 12);
-        secondChord[5] = byte(secondChord[0] - 12);
-        secondChord[6] = byte(secondChord[1] + 12);
-        secondChord[7] = byte(secondChord[1] - 12);
-        secondChord[8] = byte(secondChord[2] + 12);
-        secondChord[9] = byte(secondChord[2] - 12);
-        secondChord[10] = byte(secondChord[3] + 12);
-        secondChord[11] = byte(secondChord[3] - 12);
-        //flags
-        secondChord[12] = inversionSelection2;
-        secondChord[13] = byte(isMinor);
-        secondChord[14] = chordSize;
-        secondChord[15] = chordSelection;
+
+      if (channel == MIDI_BLOCK_CHORD_CHANNEL) {
+        //if there are any changes to the second chord then...
+        bool noChanges = (secondChord[0] == pitch && secondChord[12] == inversionSelection2 && secondChord[13] == byte(isMinor) && secondChord[14] == chordSize && secondChord[15] == chordSelection);
+          for (int k = 0; k < MAXIMUM_CHORD_SIZE; k++) {
+            MIDI.sendNoteOff(secondChord[k], 0, MIDI_BLOCK_CHORD_CHANNEL); //clear out channel, faster than doing all notes every time which has a noticable lag
+          }
+          // second chord 
+          secondChord[0] = pitch;
+          // w/ inversion
+          for (int k = 0; k < curLim; k++) {
+            secondChord[k+1] = byte(int(thisChord[k] + TRNSPS_2ND_CHAN) + 2*(inversions[inversionSelection2][k]));
+          }
+          //this could be done in a loop but I like this arrangment so...
+          secondChord[4] = byte(secondChord[0] + 12);
+          secondChord[5] = byte(secondChord[0] - 12);
+          secondChord[6] = byte(secondChord[1] + 12);
+          secondChord[7] = byte(secondChord[1] - 12);
+          secondChord[8] = byte(secondChord[2] + 12);
+          secondChord[9] = byte(secondChord[2] - 12);
+          secondChord[10] = byte(secondChord[3] + 12);
+          secondChord[11] = byte(secondChord[3] - 12);
+          //flags
+          secondChord[12] = inversionSelection2;
+          secondChord[13] = byte(isMinor);
+          secondChord[14] = chordSize;
+          secondChord[15] = chordSelection;
+
+          for (int k = 0; k < chordSize; k++) {
+            MIDI.sendNoteOn(secondChord[k], velocity, MIDI_BLOCK_CHORD_CHANNEL);
+            Serial.flush();
+          }
+      }
         
-        for (int k = 0; k < chordSize; k++) {
-          MIDI.sendNoteOn(secondChord[k], velocity, MIDI_BLOCK_CHORD_CHANNEL);
-          Serial.flush();
-        }
-//      }
   
       // apply inversion
       for (int k = 0; k < curLim; k++) {
