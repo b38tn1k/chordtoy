@@ -1,0 +1,4 @@
+(sym_lib_table
+  (lib (name chordtoy-eagle-import)(type Legacy)(uri ${KIPRJMOD}/chordtoy-eagle-import.lib)(options "")(descr ""))
+  (lib (name SynthMod)(type Legacy)(uri /Users/jcarthew/dev/chordtoy/kicad/KiCadLib/SynthMod.lib)(options "")(descr ""))
+)
