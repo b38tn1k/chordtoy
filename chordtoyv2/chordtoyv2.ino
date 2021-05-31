@@ -343,10 +343,13 @@ void handleNoteOff(byte channel, byte pitch, byte velocity) {
       if (bypass == false) {
       for (int i = 0; i < VOICES; i ++ ) {
         MIDI.sendNoteOff(thisChord[i], 0, MIDI_STRUM_CHANNEL);
-        MIDI.sendNoteOff(thisChord[i], 0, MIDI_BLOCK_CHORD_CHANNEL);
         MIDI.sendNoteOff(prevChord[i], 0, MIDI_STRUM_CHANNEL);
-        MIDI.sendNoteOff(prevChord[i], 0, MIDI_BLOCK_CHORD_CHANNEL);
       }
+      for (int i = 0; i < MAXIMUM_CHORD_SIZE; i ++ ) {
+        MIDI.sendNoteOff(secondChord[i], 0, MIDI_BLOCK_CHORD_CHANNEL);
+        MIDI.sendNoteOff(secondChord[i], 0, MIDI_BLOCK_CHORD_CHANNEL);
+      }
+      
     } 
   }
 }
