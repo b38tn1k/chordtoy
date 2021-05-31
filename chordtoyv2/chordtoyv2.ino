@@ -283,9 +283,6 @@ void handleNoteOn(byte channel, byte pitch, byte velocity) {
         }
       }
   
-      
-      // both have diminished chords but icbf
-  
       //if there are any changes to the second chord then...
       bool noChanges = (secondChord[0] == pitch && secondChord[12] == inversionSelection2 && secondChord[13] == byte(isMinor) && secondChord[14] == chordSize && secondChord[15] == chordSelection);
       if (noChanges == false){
@@ -325,14 +322,14 @@ void handleNoteOn(byte channel, byte pitch, byte velocity) {
         }
         
     } else {
-      MIDI.sendNoteOn(pitch, velocity, MIDI_STRUM_CHANNEL);
+      MIDI.sendNoteOn(pitch, velocity, channel);
     }
   }
 }
 
 void handleNoteOff(byte channel, byte pitch, byte velocity) {
 
-  if (channel != MIDI_BLOCK_CHORD_CHANNEL && channel != MIDI_STRUM_CHANNEL) {
+  if ((channel != MIDI_BLOCK_CHORD_CHANNEL && channel != MIDI_STRUM_CHANNEL) || bypass == true) {
     MIDI.sendNoteOff(pitch, velocity, channel);
   } else {
     if (legato == false) {
