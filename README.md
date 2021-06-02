@@ -11,7 +11,7 @@ I am not that great at building cases, here are my v1 and v2 prototypes.
 
 [how to install arduino midi library](https://github.com/FortySevenEffects/arduino_midi_library)
 
-**built on a tested with MIDI Library version 4.3.1***
+***built on a tested with MIDI Library version 4.3.1***
 
 I wanted to play chords using the Arturia BeatStep Pro sequencer. This sits in the MIDI chain between the sequencer and the synth and uses the incoming MIDI note to stack a chord.*
 
