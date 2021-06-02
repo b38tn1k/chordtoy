@@ -2,6 +2,12 @@
 //So this one does two MIDI channels, just connect two MIDI plugs to the output of the arduino, it should provide enough power
 //or look for a blog on how to do it properly :-D
 
+// MIDI SETTINGS - Change these as desired
+//the strum channel
+#define MIDI_STRUM_CHANNEL 3 
+//the pad or arp channel
+#define MIDI_BLOCK_CHORD_CHANNEL 5  
+
 //IO for pots and switches
 #define MAJOR_MINOR 11        //switch for major / minor
 #define CHORD_POT 4           //pot to scroll throguh various chord shapes
@@ -16,10 +22,7 @@
 #define SIZE_POT 3            //pot to increase size of chord for second channel through addition of octaves above and below
 #define TRNSPS_2ND_CHAN -24   //just my taste
 
-// MIDI SETTINGS
-#define MIDI_STRUM_CHANNEL 3 //the strum channel, does not trigger BLOCK CHORD CHANNEL
-#define MIDI_BLOCK_CHORD_CHANNEL 5  //the pad or arp channel, triggers STRUM channel also
-//only send over either 3 or 5 - sending over both will result in "jazz"... TODO: fix this
+
 
 //I dont think you need to worry about any other settings unless you wanna make some improvements
 #define ANALOG_READ_RESOLUTION 1053.0
@@ -36,6 +39,7 @@ int chordSelection = 0;
 int inversionSelection = 0;
 int inversionSelection2 = 0;
 byte thisChord[] = {0, 0, 0}; // DX polyphony limit //v2 update, turns up polyphony limit on the DX is more than 4, i cant remember how much more. 
+byte thisChordSecond[] = {0, 0, 0}; // DX polyphony limit //v2 update, turns up polyphony limit on the DX is more than 4, i cant remember how much more. 
 byte secondChord[] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}; // 12 notes and then major/minor, chord value, inversion, size
 byte prevChord[] = {0, 0, 0};
 unsigned long strumRate = 0;
@@ -203,10 +207,10 @@ void pollInputs() {
 }
 
 void handleNoteOn(byte channel, byte pitch, byte velocity) {
-  if (channel != (char)MIDI_BLOCK_CHORD_CHANNEL && channel != (char)MIDI_STRUM_CHANNEL) {
+  if ((channel != MIDI_BLOCK_CHORD_CHANNEL && channel != MIDI_STRUM_CHANNEL) || bypass == true) {
     MIDI.sendNoteOn(pitch, velocity, channel);
   } else {
-    if (bypass == false) {
+    if (channel == MIDI_STRUM_CHANNEL) {
       trigPrevMillis = millis();
       clearNCopyChord(pitch);
       cur = 0;
@@ -283,75 +287,141 @@ void handleNoteOn(byte channel, byte pitch, byte velocity) {
           }
         }
       }
-
-      if (channel == MIDI_BLOCK_CHORD_CHANNEL) {
-        //if there are any changes to the second chord then...
-        bool noChanges = (secondChord[0] == pitch && secondChord[12] == inversionSelection2 && secondChord[13] == byte(isMinor) && secondChord[14] == chordSize && secondChord[15] == chordSelection);
-          for (int k = 0; k < MAXIMUM_CHORD_SIZE; k++) {
-            MIDI.sendNoteOff(secondChord[k], 0, MIDI_BLOCK_CHORD_CHANNEL); //clear out channel, faster than doing all notes every time which has a noticable lag
-          }
-          // second chord 
-          secondChord[0] = pitch;
-          // w/ inversion
-          for (int k = 0; k < curLim; k++) {
-            secondChord[k+1] = byte(int(thisChord[k] + TRNSPS_2ND_CHAN) + 2*(inversions[inversionSelection2][k]));
-          }
-          //this could be done in a loop but I like this arrangment so...
-          secondChord[4] = byte(secondChord[0] + 12);
-          secondChord[5] = byte(secondChord[0] - 12);
-          secondChord[6] = byte(secondChord[1] + 12);
-          secondChord[7] = byte(secondChord[1] - 12);
-          secondChord[8] = byte(secondChord[2] + 12);
-          secondChord[9] = byte(secondChord[2] - 12);
-          secondChord[10] = byte(secondChord[3] + 12);
-          secondChord[11] = byte(secondChord[3] - 12);
-          //flags
-          secondChord[12] = inversionSelection2;
-          secondChord[13] = byte(isMinor);
-          secondChord[14] = chordSize;
-          secondChord[15] = chordSelection;
-
-          for (int k = 0; k < chordSize; k++) {
-            MIDI.sendNoteOn(secondChord[k], velocity, MIDI_BLOCK_CHORD_CHANNEL);
-            Serial.flush();
-          }
-      }
-        
-  
+      
       // apply inversion
-      for (int k = 0; k < curLim; k++) {
-          thisChord[k] = byte(int(thisChord[k]) + inversions[inversionSelection][k]);
+    for (int k = 0; k < curLim; k++) {
+        thisChord[k] = byte(int(thisChord[k]) + inversions[inversionSelection][k]);
+      }
+    }
+
+    if (channel == MIDI_BLOCK_CHORD_CHANNEL) {
+      ///NEW    
+     int curLimSecond = 0;
+     int j = 0;
+     for (int i = 0; i < VOICES; i ++ ) {
+       if (chords[chordSelection][i] == 1) {
+         curLimSecond++;
+         thisChordSecond[j] = bank[i] + pitch;
+         j++;
+       }
+     }
+     
+     // rebuild in key maybe
+     // bring it all the way to 0..12 range
+     int lowNote = int(pitch) % 12;
+     // figure out if it is in the scale;
+     if ((lowNote - key) < 0) {lowNote += 12;}
+     int interval = lowNote - key;
+     
+     // in a natural minor scale, the diatonic chords for iii, vi and vii are major
+     if (isMinor == true && interval == 3 || interval == 5 || interval == 10) {
+       curLimSecond = 0;
+       j = 0;
+       for (int i = 0; i < VOICES; i ++ ) {
+         if (chords[chordSelection][i] == 1) {
+           curLimSecond++;
+           thisChordSecond[j] = majorBank[i] + pitch;
+           j++;
+         }
+       }
+     }
+    
+       // in a natural minor scale, the ii is diminished
+     if (isMinor == true && interval == 2) {
+       curLimSecond = 0;
+       j = 0;
+       for (int i = 0; i < VOICES; i ++ ) {
+         if (chords[chordSelection][i] == 1) {
+           curLimSecond++;
+           thisChordSecond[j] = dimBank[i] + pitch;
+           j++;
+         }
+       }
+     }
+    
+     // in a major scale, the diatonic chords for ii, iii and vi are minor
+     if (isMinor == false && interval == 2 || interval == 4 || interval == 9) {
+       curLimSecond = 0;
+       j = 0;
+       for (int i = 0; i < VOICES; i ++ ) {
+         if (chords[chordSelection][i] == 1) {
+           curLimSecond++;
+           thisChordSecond[j] = minorBank[i] + pitch;
+           j++;
+         }
+       }
+     }
+    
+     // major has diminished vii
+     if (isMinor == false && interval == 11) {
+       curLimSecond = 0;
+       j = 0;
+       for (int i = 0; i < VOICES; i ++ ) {
+         if (chords[chordSelection][i] == 1) {
+           curLimSecond++;
+           thisChordSecond[j] = dimBank[i] + pitch;
+           j++;
+         }
+       }
+     }
+
+        for (int k = 0; k < MAXIMUM_CHORD_SIZE; k++) {
+          MIDI.sendNoteOff(secondChord[k], 0, MIDI_BLOCK_CHORD_CHANNEL); //clear out channel, faster than doing all notes every time which has a noticable lag
         }
-        
-    } else {
-      MIDI.sendNoteOn(pitch, velocity, channel);
+        // second chord 
+        secondChord[0] = pitch;
+        // w/ inversion
+        for (int k = 0; k < curLim; k++) {
+          secondChord[k+1] = byte(int(thisChord[k] + TRNSPS_2ND_CHAN) + 2*(inversions[inversionSelection2][k]));
+        }
+        //this could be done in a loop but I like this arrangment so...
+        secondChord[4] = byte(secondChord[0] + 12);
+        secondChord[5] = byte(secondChord[0] - 12);
+        secondChord[6] = byte(secondChord[1] + 12);
+        secondChord[7] = byte(secondChord[1] - 12);
+        secondChord[8] = byte(secondChord[2] + 12);
+        secondChord[9] = byte(secondChord[2] - 12);
+        secondChord[10] = byte(secondChord[3] + 12);
+        secondChord[11] = byte(secondChord[3] - 12);
+        //flags
+        secondChord[12] = inversionSelection2;
+        secondChord[13] = byte(isMinor);
+        secondChord[14] = chordSize;
+        secondChord[15] = chordSelection;
+
+        for (int k = 0; k < chordSize; k++) {
+          MIDI.sendNoteOn(secondChord[k], velocity, MIDI_BLOCK_CHORD_CHANNEL);
+          Serial.flush();
+        }
     }
   }
 }
 
 void handleNoteOff(byte channel, byte pitch, byte velocity) {
 
-  if ((channel != MIDI_BLOCK_CHORD_CHANNEL && channel != MIDI_STRUM_CHANNEL) || bypass == true) {
+  if (bypass == true) {
     MIDI.sendNoteOff(pitch, velocity, channel);
   } else {
     if (legato == false) {
       cur = curLim;
     }
-    MIDI.sendNoteOff(pitch, 0, MIDI_STRUM_CHANNEL);
-    MIDI.sendNoteOff(pitch, 0, MIDI_BLOCK_CHORD_CHANNEL);
-      if (bypass == false) {
+    if (channel == MIDI_STRUM_CHANNEL) {
+      MIDI.sendNoteOff(pitch, 0, MIDI_STRUM_CHANNEL);
       for (int i = 0; i < VOICES; i ++ ) {
         MIDI.sendNoteOff(thisChord[i], 0, MIDI_STRUM_CHANNEL);
         MIDI.sendNoteOff(prevChord[i], 0, MIDI_STRUM_CHANNEL);
       }
+    } else if (channel == MIDI_BLOCK_CHORD_CHANNEL) {
+      MIDI.sendNoteOff(pitch, 0, MIDI_BLOCK_CHORD_CHANNEL);
       for (int i = 0; i < MAXIMUM_CHORD_SIZE; i ++ ) {
         MIDI.sendNoteOff(secondChord[i], 0, MIDI_BLOCK_CHORD_CHANNEL);
-        MIDI.sendNoteOff(secondChord[i], 0, MIDI_BLOCK_CHORD_CHANNEL);
       }
-      
-    } 
+    } else {
+      MIDI.sendNoteOff(pitch, velocity, channel);
+    }
   }
 }
+
 
 void assignBank(byte _bank[]) {
     for (int i = 0; i < VOICES; i++) {
