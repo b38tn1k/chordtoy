@@ -11,6 +11,8 @@ I am not that great at building cases, here are my v1 and v2 prototypes.
 
 [how to install arduino midi library](https://github.com/FortySevenEffects/arduino_midi_library)
 
+**built on a tested with MIDI Library version 4.3.1***
+
 I wanted to play chords using the Arturia BeatStep Pro sequencer. This sits in the MIDI chain between the sequencer and the synth and uses the incoming MIDI note to stack a chord.*
 
 ## Features
@@ -47,5 +49,10 @@ Version 2 is similar with pot and switch IOs listed at top of the .ino file.
 
 Prototype using a Pro Trinket (same pinouts as UNO) before I made it diatonic:
 ![cat tax](https://github.com/b38tn1k/chordtoy/blob/master/cabbagecat.JPG)
+
+## Almost TODOs, Maybe just ideas
+
+- MIDI CC Control for the various pots and switches
+- Does [FortySevenEffect](https://github.com/FortySevenEffects/arduino_midi_library) MIDI library support transport, tempo, etc pass through?
 
 \* Akai and Oberheim used to make boxes that did this sort of thing and this functionality is now built into heaps of DAWs, possible some synths. my Yamaha DX doesn't
