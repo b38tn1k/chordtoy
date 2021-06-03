@@ -56,3 +56,6 @@ Prototype using a Pro Trinket (same pinouts as UNO) before I made it diatonic:
 - Does [FortySevenEffect](https://github.com/FortySevenEffects/arduino_midi_library) MIDI library support transport, tempo, etc pass through?
 
 \* Akai and Oberheim used to make boxes that did this sort of thing and this functionality is now built into heaps of DAWs, possible some synths. my Yamaha DX doesn't
+
+
+Thank you to David Fodel for testing, advice and motivation!
