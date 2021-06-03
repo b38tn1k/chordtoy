@@ -29,7 +29,7 @@ I wanted to play chords using the Arturia BeatStep Pro sequencer. This sits in t
 
 - a **Legato Switch** changes the way MIDI noteoff messages are sent, allowing the strummed chord to ring out from a trigger or be cut short.
 
-- a **Bypass Switch**, turn off the effect and this just becomes a 1:2 MIDI splitter. More useful than turning everything down as in V1.
+- a **Bypass Switch**, turn off the effect. More useful than turning everything down as in V1.
 
 - a **Second MIDI Channel**. The ```MIDI_STRUM_CHANNEL``` does the 'strumming' chord effect. The ```MIDI_BLOCK_CHORD_CHANNEL``` is used to transmit block chords with the same notes as the Master chord, but with its own unique settings. It works nicely with my (newish) Behringer Crave in arp mode, giving me a 'free time' chord flourish from the DX and accompanying in time Arpeggios from the Crave. If you dont want the second channel stuff just don't let any devices listen on that channel and it should be fine, maybe tie the 'chord size' analog pin to ground :)
 
