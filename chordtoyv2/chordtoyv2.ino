@@ -12,7 +12,7 @@
 #define MAJOR_MINOR 11        //switch for major / minor
 #define CHORD_POT 4           //pot to scroll throguh various chord shapes
 #define INV_POT1 0            //pot to scroll through inversions for first channel
-#define KEY_POT 5             //pot to scroll through western scale, enables selection of the root note for the major / minor mode
+#define KEY_POT 5             //pot to scroll through western scale, enables selection of the root note for the major / minor mode, A = 0, Bb = 1, B = 2, ...
 #define RATE_POT 1            //strum rate
 #define LED_1 13              //major or minor signifier? IDK
 #define LED_2 12              //major or minor signifier? IDK
