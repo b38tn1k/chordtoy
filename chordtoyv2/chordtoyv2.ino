@@ -12,7 +12,7 @@
 #define MAJOR_MINOR 11        //switch for major / minor
 #define CHORD_POT 4           //pot to scroll throguh various chord shapes
 #define INV_POT1 0            //pot to scroll through inversions for first channel
-#define KEY_POT 5             //pot to scroll through western scale, enables selection of the root note for the major / minor mode, A = 0, Bb = 1, B = 2, ...
+#define KEY_POT 5             //pot to scroll through inversions for external arp or pad channel
 #define RATE_POT 1            //strum rate
 #define LED_1 13              //major or minor signifier? IDK
 #define LED_2 12              //major or minor signifier? IDK
@@ -89,6 +89,10 @@ const byte dimBank[] = {3, 6, 12, 15, 18, 24};
 const byte majorBank[] = {4, 7, 10, 12, 14, 17};
 bool isMinor;
 bool prevMode;
+
+int skipInterval = 3;
+int skipOnIntervalCounter = 0;
+int skipOffIntervalCounter = 0;
 
 void setup() {
   pinMode(LED_1, OUTPUT);
@@ -207,6 +211,12 @@ void pollInputs() {
 }
 
 void handleNoteOn(byte channel, byte pitch, byte velocity) {
+  if (skipOnIntervalCounter % skipInterval == 0) {
+    bypass = false;
+  } else {
+    bypass = true;
+  }
+  skipOnIntervalCounter++;
   if ((channel != MIDI_BLOCK_CHORD_CHANNEL && channel != MIDI_STRUM_CHANNEL) || bypass == true) {
     MIDI.sendNoteOn(pitch, velocity, channel);
   } else {
@@ -398,6 +408,12 @@ void handleNoteOn(byte channel, byte pitch, byte velocity) {
 }
 
 void handleNoteOff(byte channel, byte pitch, byte velocity) {
+  if (skipOffIntervalCounter % skipInterval == 0) {
+    bypass = false;
+  } else {
+    bypass = true;
+  }
+  skipOffIntervalCounter++;
 
   if (bypass == true) {
     MIDI.sendNoteOff(pitch, velocity, channel);
