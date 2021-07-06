@@ -422,13 +422,6 @@ void handleNoteOn(byte channel, byte pitch, byte velocity) {
 }
 
 void handleNoteOff(byte channel, byte pitch, byte velocity) {
-//  if (strumOffIntervalCounter % strumInterval == 0) {
-//    bypass = false;
-//  } else {
-//    bypass = true;
-//  }
-//  strumOffIntervalCounter++;
-
   if (bypass == true) {
     MIDI.sendNoteOff(pitch, velocity, channel);
   } else {
@@ -437,14 +430,18 @@ void handleNoteOff(byte channel, byte pitch, byte velocity) {
     }
     if (channel == MIDI_STRUM_CHANNEL) {
       MIDI.sendNoteOff(pitch, 0, MIDI_STRUM_CHANNEL);
-      for (int i = 0; i < VOICES; i ++ ) {
-        MIDI.sendNoteOff(thisChord[i], 0, MIDI_STRUM_CHANNEL);
-        MIDI.sendNoteOff(prevChord[i], 0, MIDI_STRUM_CHANNEL);
+      if (strumOnIntervalCounter % strumInterval == 0) {
+        for (int i = 0; i < VOICES; i ++ ) {
+          MIDI.sendNoteOff(thisChord[i], 0, MIDI_STRUM_CHANNEL);
+          MIDI.sendNoteOff(prevChord[i], 0, MIDI_STRUM_CHANNEL);
+        }
       }
     } else if (channel == MIDI_BLOCK_CHORD_CHANNEL) {
       MIDI.sendNoteOff(pitch, 0, MIDI_BLOCK_CHORD_CHANNEL);
-      for (int i = 0; i < MAXIMUM_CHORD_SIZE; i ++ ) {
-        MIDI.sendNoteOff(secondChord[i], 0, MIDI_BLOCK_CHORD_CHANNEL);
+      if (blockOnIntervalCounter % blockInterval == 0) {
+        for (int i = 0; i < MAXIMUM_CHORD_SIZE; i ++ ) {
+          MIDI.sendNoteOff(secondChord[i], 0, MIDI_BLOCK_CHORD_CHANNEL);
+        }
       }
     } else {
       MIDI.sendNoteOff(pitch, velocity, channel);
