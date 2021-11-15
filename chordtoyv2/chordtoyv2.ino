@@ -2,25 +2,37 @@
 //So this one does two MIDI channels, just connect two MIDI plugs to the output of the arduino, it should provide enough power
 //or look for a blog on how to do it properly :-D
 
-// MIDI SETTINGS - Change these as desired
-//the strum channel
-#define MIDI_STRUM_CHANNEL 3
-//the pad or arp channel
-#define MIDI_BLOCK_CHORD_CHANNEL 5
+// MIDI SETTINGS - Change these as desired - These are now variables rather than constants so they can be changed by the switches
+int TRNSPS_2ND_CHAN = 0;
+//the strum Inut channel
+int MIDI_STRUM_CHANNEL_IN = 2;
+//the pad or arp Input channel
+int MIDI_BLOCK_CHORD_CHANNEL_IN = 3;
+
+//the strum Output channel
+int MIDI_STRUM_CHANNEL = 2;
+//the pad or arp Output channel
+int MIDI_BLOCK_CHORD_CHANNEL = 3;
+
+//switch to set MIDI Thru to On or Off and Strum and Chord channels to 16 or to rotary switch values - effectively turning On or Off all MIDI processing
+int MIDI_IGNORE = false;
+
+//the bypass Output channel
+int MIDI_BYPASS_CHANNEL = 1;
 
 //IO for pots and switches
-#define MAJOR_MINOR 11        //switch for major / minor
-#define CHORD_POT 4           //pot to scroll throguh various chord shapes
+#define MAJOR_MINOR 2        //switch for major / minor
+#define CHORD_POT 4           //pot to scroll through various chord shapes
 #define INV_POT1 0            //pot to scroll through inversions for first channel
-#define KEY_POT 5             //pot to scroll through inversions for external arp or pad channel
+#define KEY_POT 5             //pot to scroll through Root Note
 #define RATE_POT 1            //strum rate
 #define LED_1 13              //major or minor signifier? IDK
-#define LED_2 12              //major or minor signifier? IDK
-#define BYPASS_SWITCH 10      //just pass normal MIDI through
-#define LEGATO_SWITCH 9       //change note off mode a bit, also its not really legato, is something else 
+//#define LED_2 12              //major or minor signifier? IDK
+#define BYPASS_SWITCH 3      //just pass normal MIDI through
+#define LEGATO_SWITCH 4       //change note off mode a bit, also its not really legato, is something else 
 #define INV_POT2 2            //pot to scroll through inversions for second channel
 #define SIZE_POT 3            //pot to increase size of chord for second channel through addition of octaves above and below
-#define TRNSPS_2ND_CHAN -24   //just my taste
+// #define TRNSPS_2ND_CHAN -24   //just my taste
 
 //I dont think you need to worry about any other settings unless you wanna make some improvements
 #define ANALOG_READ_RESOLUTION 1053.0
@@ -31,7 +43,8 @@
 #define THERE_ARE_12_NOTES_IN_WESTERN_MUSIC 12
 #define MIDI_RANGE_WITH_SCALE 71
 #define MAXIMUM_CHORD_SIZE 12 //that's pretty big though
-MIDI_CREATE_DEFAULT_INSTANCE();
+//MIDI_CREATE_DEFAULT_INSTANCE();
+MIDI_CREATE_INSTANCE(HardwareSerial, Serial1, MIDI);
 
 int chordSelection = 0;
 int inversionSelection = 0;
@@ -95,12 +108,46 @@ int blockInterval = 5; // attach this one to a rotary in void pollInputs() {
 int blockOnIntervalCounter = 0;
 int blockOffIntervalCounter = 0;
 
+// duration stuff
+#define DURATION_POT 12 // TBD
+int noteOffDelay = 0;
+int noteOffTimes[128];
+float durationScale = 1.0;
+int minimumDuration = 50;
+int lowest = 128;
+int highest = 0;
+// end duration stuff
+
+int returnLowest(int a, int b) {
+  int c = a;
+  if (b < a) {
+    c = b;
+  }
+  return c;
+}
+
+int returnHighest(int a, int b) {
+  int c = a;
+  if (b > a) {
+    c = b;
+  }
+  return c;
+}
+
 void setup() {
   pinMode(LED_1, OUTPUT);
-  pinMode(LED_2, OUTPUT);
+//  pinMode(LED_2, OUTPUT);
   pinMode(BYPASS_SWITCH, INPUT);
   pinMode(MAJOR_MINOR, INPUT);
   pinMode(LEGATO_SWITCH, INPUT);
+
+  for (int i=5; i<13; i++){ 
+  pinMode(i, INPUT_PULLUP);
+  }
+  for (int i=22; i<50; i++){ 
+  pinMode(i, INPUT_PULLUP);
+  }
+  
   MIDI.setHandleNoteOn(handleNoteOn);
   MIDI.setHandleNoteOff(handleNoteOff);
   //  MIDI.begin(MIDI_STRUM_CHANNEL); //bypass only works with this one channel. TODO: research MIDI Library more
@@ -109,18 +156,44 @@ void setup() {
   toggleBank();
   prevMode = isMinor;
   prevKey = key;
+ //Serial.begin(9600);
 }
 
 void loop() {
+
+
   currentMillis = millis();
+
+
   MIDI.read();
   if (currentMillis - pollPrevMillis >= pollInterval) {
     pollInputs();
-    pollPrevMillis = currentMillis;
+    pollPrevMillis = currentMillis;   
   }
+
+  if (MIDI_IGNORE == true){
+    MIDI.turnThruOff();
+    MIDI_STRUM_CHANNEL = 16;
+    MIDI_BLOCK_CHORD_CHANNEL = 16;
+    MIDI_BYPASS_CHANNEL = 16; 
+  }
+  
   if (bypass == false) {
+    // duration stuff
+    for (int i = lowest; i < highest; i++) {
+      if (noteOffTimes[i] != 0) {
+        if (noteOffTimes[i] <= currentMillis) {
+          MIDI.sendNoteOff(i, 0, MIDI_STRUM_CHANNEL);
+          noteOffTimes[i] = 0;
+        }
+      }
+    }
+    // end duration stuff
     if ((currentMillis - trigPrevMillis >= strumRate) && (cur < curLim)) {
       MIDI.sendNoteOn(thisChord[cur], vel, MIDI_STRUM_CHANNEL);
+      noteOffTimes[thisChord[cur]] = currentMillis + noteOffDelay;
+      lowest = returnLowest(lowest, thisChord[cur]) - 1;
+      highest = returnHighest(highest, thisChord[cur]);
       trigPrevMillis = currentMillis;
       cur++;
     }
@@ -147,7 +220,7 @@ void loop() {
     if (currentMillis - keyLEDPrevMillis >= 200) {
       keyLEDStatus = !keyLEDStatus;
       digitalWrite(LED_1, keyLEDStatus);
-      digitalWrite(LED_2, keyLEDStatus);
+//      digitalWrite(LED_2, keyLEDStatus);
       keyLEDPrevMillis = currentMillis;
     }
   }
@@ -171,10 +244,10 @@ void toggleBank() {
   if (isMinor == true) {
     assignBank(minorBank);
     activeLED = LED_1;
-    inactiveLED = LED_2;
+//    inactiveLED = LED_2;
   } else {
     inactiveLED = LED_1;
-    activeLED = LED_2;
+//    activeLED = LED_2;
     assignBank(majorBank);
   }
   digitalWrite(activeLED, HIGH);
@@ -182,6 +255,7 @@ void toggleBank() {
 }
 
 void pollInputs() {
+  pollSwitches();
   isMinor = digitalRead(MAJOR_MINOR);
   bypass = digitalRead(BYPASS_SWITCH);
   legato = digitalRead(LEGATO_SWITCH);
@@ -209,6 +283,12 @@ void pollInputs() {
   analogRead(SIZE_POT);
   float chordSizeVal = analogRead(SIZE_POT);
   chordSize = int(chordSizeVal * (MAXIMUM_CHORD_SIZE / ANALOG_READ_RESOLUTION));
+
+  // duration stuff
+  analogRead(DURATION_POT);
+  noteOffDelay = analogRead(SIZE_POT);
+  noteOffDelay = int( (durationScale * noteOffDelay)) + minimumDuration;
+  // end duration stuff
 }
 
 void handleNoteOn(byte channel, byte pitch, byte velocity) {
@@ -218,10 +298,11 @@ void handleNoteOn(byte channel, byte pitch, byte velocity) {
     bypass = true;
   }
 
-  if ((channel != MIDI_BLOCK_CHORD_CHANNEL && channel != MIDI_STRUM_CHANNEL) || bypass == true) {
-    MIDI.sendNoteOn(pitch, velocity, channel);
+  if ((channel != MIDI_BLOCK_CHORD_CHANNEL_IN && channel != MIDI_STRUM_CHANNEL_IN) || bypass == true) {
+    //MIDI.sendNoteOn(pitch, velocity, channel); // I removed this because I am making up for it by turning the MIDI.thru on and off using MIDI_IGNORE and selectively letting the BYPASS_CHANNEL through here.
+    MIDI.sendNoteOn(pitch, velocity, MIDI_BYPASS_CHANNEL); // I added these lines to all NoteOn and NoteOff sections except Line 185 above where it does the Chordblock 'clearing'
   } else {
-    if (channel == MIDI_STRUM_CHANNEL) {
+    if (channel == MIDI_STRUM_CHANNEL_IN) {
       strumOnIntervalCounter++;
       if (strumOnIntervalCounter % strumInterval == 0) {
         trigPrevMillis = millis();
@@ -309,11 +390,12 @@ void handleNoteOn(byte channel, byte pitch, byte velocity) {
         }
       } else {
         MIDI.sendNoteOn(pitch, velocity, channel);
+        MIDI.sendNoteOn(pitch, velocity, MIDI_BYPASS_CHANNEL);
       }
     }
 
 
-    if (channel == MIDI_BLOCK_CHORD_CHANNEL) {
+    if (channel == MIDI_BLOCK_CHORD_CHANNEL_IN) {
       blockOnIntervalCounter++;
       int curLimSecond = 0;
       int j = 0;
@@ -416,6 +498,7 @@ void handleNoteOn(byte channel, byte pitch, byte velocity) {
         }
       } else {
         MIDI.sendNoteOn(pitch, velocity, channel);
+        MIDI.sendNoteOn(pitch, velocity, MIDI_BYPASS_CHANNEL);
       }
     }
   }
@@ -424,11 +507,12 @@ void handleNoteOn(byte channel, byte pitch, byte velocity) {
 void handleNoteOff(byte channel, byte pitch, byte velocity) {
   if (bypass == true) {
     MIDI.sendNoteOff(pitch, velocity, channel);
+    MIDI.sendNoteOff(pitch, velocity, MIDI_BYPASS_CHANNEL);
   } else {
     if (legato == false) {
       cur = curLim;
     }
-    if (channel == MIDI_STRUM_CHANNEL) {
+    if (channel == MIDI_STRUM_CHANNEL_IN) {
       MIDI.sendNoteOff(pitch, 0, MIDI_STRUM_CHANNEL);
       if (strumOnIntervalCounter % strumInterval == 0) {
         for (int i = 0; i < VOICES; i ++ ) {
@@ -436,7 +520,7 @@ void handleNoteOff(byte channel, byte pitch, byte velocity) {
           MIDI.sendNoteOff(prevChord[i], 0, MIDI_STRUM_CHANNEL);
         }
       }
-    } else if (channel == MIDI_BLOCK_CHORD_CHANNEL) {
+    } else if (channel == MIDI_BLOCK_CHORD_CHANNEL_IN) {
       MIDI.sendNoteOff(pitch, 0, MIDI_BLOCK_CHORD_CHANNEL);
       if (blockOnIntervalCounter % blockInterval == 0) {
         for (int i = 0; i < MAXIMUM_CHORD_SIZE; i ++ ) {
@@ -445,6 +529,7 @@ void handleNoteOff(byte channel, byte pitch, byte velocity) {
       }
     } else {
       MIDI.sendNoteOff(pitch, velocity, channel);
+      MIDI.sendNoteOff(pitch, velocity, MIDI_BYPASS_CHANNEL);
     }
   }
 }
@@ -466,5 +551,185 @@ void clearNCopyChord(byte pitch) {
   for (int i = 0; i < POLY; i++) {
     prevChord[i] = thisChord[i];
     thisChord[i] = pitch;
+  }
+}
+
+void pollSwitches() {
+  //read the switch value into a variable
+  int switch_position_5_status = digitalRead(5);
+  int switch_position_6_status = digitalRead(6);
+  int switch_position_7_status = digitalRead(7);
+  
+  int switch_position_8_status = digitalRead(8);
+  int switch_position_9_status = digitalRead(9);
+  int switch_position_10_status = digitalRead(10);
+  int switch_position_11_status = digitalRead(11);
+  int switch_position_12_status = digitalRead(12);
+
+  int switch_position_22_status = digitalRead(22);
+  int switch_position_23_status = digitalRead(23);
+  int switch_position_24_status = digitalRead(24);
+  int switch_position_25_status = digitalRead(25);
+
+  int switch_position_26_status = digitalRead(26);
+  int switch_position_27_status = digitalRead(27);
+  int switch_position_28_status = digitalRead(28);
+  int switch_position_29_status = digitalRead(29);
+
+  int switch_position_30_status = digitalRead(30);
+  int switch_position_31_status = digitalRead(31);
+  int switch_position_32_status = digitalRead(32);
+  int switch_position_33_status = digitalRead(33);
+
+  int switch_position_34_status = digitalRead(34);
+  int switch_position_35_status = digitalRead(35);
+  int switch_position_36_status = digitalRead(36);
+  int switch_position_37_status = digitalRead(37);
+  int switch_position_38_status = digitalRead(38);
+  int switch_position_39_status = digitalRead(39);
+  int switch_position_40_status = digitalRead(40);
+  int switch_position_41_status = digitalRead(41);
+
+  int switch_position_42_status = digitalRead(42);
+  int switch_position_43_status = digitalRead(43);
+  int switch_position_44_status = digitalRead(44);
+  int switch_position_45_status = digitalRead(45);
+  int switch_position_46_status = digitalRead(46);
+  int switch_position_47_status = digitalRead(47);
+  int switch_position_48_status = digitalRead(48);
+  int switch_position_49_status = digitalRead(49);        
+  
+  //execute switch functions
+  //execute toggle switches 4, 5 qnd 6
+
+    if (switch_position_5_status == LOW) {
+     MIDI_STRUM_CHANNEL_IN = 2; // sets which incoming MIDI channel will go to the Blockchord MIDI output
+
+  } else {
+     MIDI_STRUM_CHANNEL_IN = 3; // sets which incoming MIDI channel will go to the Blockchord MIDI output
+
+  }
+    if (switch_position_6_status == LOW) {
+     MIDI_BLOCK_CHORD_CHANNEL_IN = 2; // sets which incoming MIDI channel will go to the Blockchord MIDI output
+
+  } else {
+     MIDI_BLOCK_CHORD_CHANNEL_IN = 3; // sets which incoming MIDI channel will go to the Blockchord MIDI output
+  }
+
+    if (switch_position_7_status == LOW) {
+     MIDI_IGNORE = false; // sets MIDI Thru to On and Strum and Chord channels to switch values - effectively turning on all MIDI processing
+
+  } else {
+    MIDI_IGNORE = true; // sets MIDI Thru to Off and Strum and Chord channels to 16 - effectively turning off all MIDI processing
+
+
+  }
+  
+  //execute rotary switch 1 - 5 locations
+  if (switch_position_8_status == LOW) {
+  TRNSPS_2ND_CHAN = -24;
+
+  } else if (switch_position_9_status == LOW) {
+  TRNSPS_2ND_CHAN = -12;
+
+  } else if (switch_position_10_status == LOW) {
+  TRNSPS_2ND_CHAN = 0;
+
+  } else if (switch_position_11_status == LOW) {
+  TRNSPS_2ND_CHAN = 12;
+
+  } else if (switch_position_12_status == LOW) {
+  TRNSPS_2ND_CHAN = 24;
+  }
+
+  //execute rotary switch 2 - 4 locations - to set outgoing MIDI Strum channel
+    if (switch_position_22_status == LOW) {
+  MIDI_STRUM_CHANNEL = 1;
+
+  } else if (switch_position_23_status == LOW) {
+  MIDI_STRUM_CHANNEL = 2;
+
+  } else if (switch_position_24_status == LOW) {
+  MIDI_STRUM_CHANNEL = 3;
+
+  } else if (switch_position_25_status == LOW) {
+  MIDI_STRUM_CHANNEL = 4;
+  }
+  //execute rotary switch 3 - 4 locations - to set outgoing MIDI Blockchord channel
+    if (switch_position_26_status == LOW) {
+  MIDI_BLOCK_CHORD_CHANNEL = 1;
+
+  } else if (switch_position_27_status == LOW) {
+  MIDI_BLOCK_CHORD_CHANNEL = 2;
+
+  } else if (switch_position_28_status == LOW) {
+  MIDI_BLOCK_CHORD_CHANNEL = 3;
+
+  } else if (switch_position_29_status == LOW) {
+  MIDI_BLOCK_CHORD_CHANNEL = 4;
+  }
+  //execute rotary switch 4 - 4 locations - to set outgoing MIDI Bypass channel
+    if (switch_position_30_status == LOW) {
+  MIDI_BYPASS_CHANNEL = 1;
+
+  } else if (switch_position_31_status == LOW) {
+  MIDI_BYPASS_CHANNEL = 2;
+
+  } else if (switch_position_32_status == LOW) {
+  MIDI_BYPASS_CHANNEL = 3;
+
+  } else if (switch_position_33_status == LOW) {
+  MIDI_BYPASS_CHANNEL = 4;
+  }
+  //execute rotary switch 5 - 8 locations
+    if (switch_position_34_status == LOW) {
+  strumInterval = 0;
+
+  } else if (switch_position_35_status == LOW) {
+  strumInterval = 1;
+
+  } else if (switch_position_36_status == LOW) {
+  strumInterval = 2;
+
+  } else if (switch_position_37_status == LOW) {
+  strumInterval = 3;
+
+  } else  if (switch_position_38_status == LOW) {
+  strumInterval = 4;
+
+  } else if (switch_position_39_status == LOW) {
+  strumInterval = 5;
+
+  } else if (switch_position_40_status == LOW) {
+  strumInterval = 6;
+
+  } else if (switch_position_41_status == LOW) {
+  strumInterval = 7;
+  }
+
+    //execute rtary switch 6 - 8 locations
+    if (switch_position_42_status == LOW) {
+  blockInterval = 0;
+
+  } else if (switch_position_43_status == LOW) {
+  blockInterval = 1;
+
+  } else if (switch_position_44_status == LOW) {
+  blockInterval = 2;
+
+  } else if (switch_position_45_status == LOW) {
+  blockInterval = 3;
+
+  } else  if (switch_position_46_status == LOW) {
+  blockInterval = 4;
+
+  } else if (switch_position_47_status == LOW) {
+  blockInterval = 5;
+
+  } else if (switch_position_48_status == LOW) {
+  blockInterval = 6;
+
+  } else if (switch_position_49_status == LOW) {
+  blockInterval = 7;
   }
 }
