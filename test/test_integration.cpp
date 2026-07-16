@@ -4,15 +4,7 @@
 // strum channel's buffer — so it's the test that must catch a regression of it.
 //
 //   Build & run:  test/run_tests.sh  (compiles with -I test/fakes)
-#include <MIDI.h>                          // fake, via -I fakes; defines byte, MIDI, etc.
-// The Arduino IDE auto-generates these prototypes; a plain C++ compiler needs them
-// because setup() calls the handlers before they're defined further down the sketch.
-void handleNoteOn(byte, byte, byte);
-void handleNoteOff(byte, byte, byte);
-void pollInputs();
-void toggleBank();
-void clearNCopyChord(byte);
-#include "../chordtoyv2/chordtoyv2.ino"   // real sketch (its own <MIDI.h> include is guard-skipped)
+#include "sketch_harness.h"                // compiles the real chordtoyv2.ino (fake MIDI via -I fakes)
 #include <cassert>
 #include <cstdio>
 

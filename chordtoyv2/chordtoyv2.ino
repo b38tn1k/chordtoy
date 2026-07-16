@@ -37,9 +37,21 @@ MIDI_CREATE_DEFAULT_INSTANCE();
 int chordSelection = 0;
 int inversionSelection = 0;
 int inversionSelection2 = 0;
-byte thisChord[VOICES];               // strum channel notes (zero-init)
-byte secondChord[MAXIMUM_CHORD_SIZE]; // block channel notes
-byte prevChord[VOICES];               // previous strum, so NoteOff can clear a strum in progress
+
+// Each channel owns at most one active chord at a time, tracked by the exact
+// notes we sent and the input note (root) that started it. NoteOff turns off
+// precisely those notes, so nothing sticks and a superseded note can't cut the
+// chord that replaced it. (This replaced a shared buffer + 1-deep prevChord that
+// leaked stuck notes once notes overlapped.)
+byte strumNotes[VOICES];               // strum chord: planned, strummed out over time
+int  strumCount = 0;
+byte strumRoot = 0;
+bool strumActive = false;
+byte blockNotes[MAXIMUM_CHORD_SIZE];   // block chord: sent all at once
+int  blockCount = 0;
+byte blockRoot = 0;
+bool blockActive = false;
+
 unsigned long strumRate = 0;
 byte vel;
 unsigned long currentMillis;
@@ -47,7 +59,6 @@ unsigned long pollPrevMillis = 0;
 const long pollInterval = 100;
 unsigned long trigPrevMillis;
 int cur = 0;
-int curLim = 0;
 int activeLED;
 int inactiveLED;
 int prevKey = 0;
@@ -62,6 +73,13 @@ bool legatoDebounce = false;
 int chordSize = 0;
 bool isMinor;
 bool prevMode;
+
+// Turn off exactly the notes we sent (nothing more), so nothing can stick on.
+void chordOff(byte notes[], int count, byte channel) {
+  for (int i = 0; i < count; i++) {
+    MIDI.sendNoteOff(notes[i], 0, channel);
+  }
+}
 
 void setup() {
   pinMode(LED_1, OUTPUT);
@@ -87,8 +105,8 @@ void loop() {
     pollPrevMillis = currentMillis;
   }
   if (bypass == false) {
-    if ((currentMillis - trigPrevMillis >= strumRate) && (cur < curLim)) {
-      MIDI.sendNoteOn(thisChord[cur], vel, MIDI_STRUM_CHANNEL);
+    if ((currentMillis - trigPrevMillis >= strumRate) && (cur < strumCount)) {
+      MIDI.sendNoteOn(strumNotes[cur], vel, MIDI_STRUM_CHANNEL);
       trigPrevMillis = currentMillis;
       cur++;
     }
@@ -123,14 +141,19 @@ void loop() {
     bypassDebounce = bypass;
     digitalWrite(activeLED, HIGH);
     digitalWrite(inactiveLED, LOW);
-    for (int k = 0; k < MAXIMUM_CHORD_SIZE; k++) {
-      MIDI.sendNoteOff(secondChord[k], 0, MIDI_BLOCK_CHORD_CHANNEL); //clear out channel, faster than doing all notes every time which has a noticable lag
-      secondChord[k] = 0;
-    }
+    // toggling bypass: silence whatever we had sounding so it can't stick on
+    chordOff(strumNotes, strumCount, MIDI_STRUM_CHANNEL);
+    chordOff(blockNotes, blockCount, MIDI_BLOCK_CHORD_CHANNEL);
+    strumCount = 0; strumActive = false;
+    blockCount = 0; blockActive = false;
+    cur = 0;
   }
   if (legatoDebounce != legato) {
-    handleNoteOff(MIDI_STRUM_CHANNEL, 0, 0); //hmm, just try clear it out
     legatoDebounce = legato;
+    // flipping the legato switch resets any ringing strum
+    chordOff(strumNotes, strumCount, MIDI_STRUM_CHANNEL);
+    strumCount = 0; strumActive = false;
+    cur = 0;
   }
 }
 
@@ -186,60 +209,56 @@ void handleNoteOn(byte channel, byte pitch, byte velocity) {
   }
 
   if (channel == MIDI_STRUM_CHANNEL) {
-    trigPrevMillis = millis();
-    clearNCopyChord(pitch);
-    cur = 0;
+    // a new trigger replaces the sounding strum chord: turn the old notes off first
+    chordOff(strumNotes, strumCount, MIDI_STRUM_CHANNEL);
+    strumCount = buildStrumChord(pitch, chordSelection, inversionSelection, isMinor, key, strumNotes);
+    strumRoot = pitch;
+    strumActive = true;
+    cur = 0;                 // loop() strums strumNotes[0..strumCount) out over time
     vel = velocity;
-    // loop() strums thisChord[0..curLim) out over time at strumRate.
-    curLim = buildStrumChord(pitch, chordSelection, inversionSelection, isMinor, key, thisChord);
+    trigPrevMillis = millis();
   }
 
   if (channel == MIDI_BLOCK_CHORD_CHANNEL) {
-    // Clear the chord that's currently sounding (cheaper than an all-notes-off).
-    for (int k = 0; k < MAXIMUM_CHORD_SIZE; k++) {
-      MIDI.sendNoteOff(secondChord[k], 0, MIDI_BLOCK_CHORD_CHANNEL);
-    }
-    // Build this channel's OWN chord from the incoming pitch (the fix — it used to
-    // read the strum channel's leftover buffer), then send up to the Size pot.
-    int notes = buildBlockChord(pitch, chordSelection, inversionSelection2, isMinor, key,
-                                TRNSPS_2ND_CHAN, secondChord);
-    if (chordSize < notes) { notes = chordSize; }
-    for (int k = 0; k < notes; k++) {
-      MIDI.sendNoteOn(secondChord[k], velocity, MIDI_BLOCK_CHORD_CHANNEL);
+    // replace the sounding block chord
+    chordOff(blockNotes, blockCount, MIDI_BLOCK_CHORD_CHANNEL);
+    blockCount = buildBlockChord(pitch, chordSelection, inversionSelection2, isMinor, key,
+                                 TRNSPS_2ND_CHAN, blockNotes);
+    if (chordSize < blockCount) { blockCount = chordSize; }   // Size pot truncates
+    blockRoot = pitch;
+    blockActive = true;
+    for (int k = 0; k < blockCount; k++) {
+      MIDI.sendNoteOn(blockNotes[k], velocity, MIDI_BLOCK_CHORD_CHANNEL);
       Serial.flush();
     }
   }
 }
 
 void handleNoteOff(byte channel, byte pitch, byte velocity) {
-
   if (bypass == true) {
     MIDI.sendNoteOff(pitch, velocity, channel);
-  } else {
-    if (legato == false) {
-      cur = curLim;
-    }
-    if (channel == MIDI_STRUM_CHANNEL) {
-      MIDI.sendNoteOff(pitch, 0, MIDI_STRUM_CHANNEL);
-      for (int i = 0; i < VOICES; i ++ ) {
-        MIDI.sendNoteOff(thisChord[i], 0, MIDI_STRUM_CHANNEL);
-        MIDI.sendNoteOff(prevChord[i], 0, MIDI_STRUM_CHANNEL);
-      }
-    } else if (channel == MIDI_BLOCK_CHORD_CHANNEL) {
-      MIDI.sendNoteOff(pitch, 0, MIDI_BLOCK_CHORD_CHANNEL);
-      for (int i = 0; i < MAXIMUM_CHORD_SIZE; i ++ ) {
-        MIDI.sendNoteOff(secondChord[i], 0, MIDI_BLOCK_CHORD_CHANNEL);
-      }
-    } else {
-      MIDI.sendNoteOff(pitch, velocity, channel);
-    }
+    return;
   }
-}
 
-
-void clearNCopyChord(byte pitch) {
-  for (int i = 0; i < POLY; i++) {
-    prevChord[i] = thisChord[i];
-    thisChord[i] = pitch;
+  if (channel == MIDI_STRUM_CHANNEL) {
+    // Only the note that started the current strum can end it. A release for a
+    // note that was already superseded is ignored (its chord is already off).
+    if (strumActive && pitch == strumRoot) {
+      if (legato == false) {
+        cur = strumCount;                                   // stop strumming the rest
+        chordOff(strumNotes, strumCount, MIDI_STRUM_CHANNEL);
+        strumCount = 0;
+        strumActive = false;
+      }
+      // legato == true: let the chord ring out; the next trigger turns it off
+    }
+  } else if (channel == MIDI_BLOCK_CHORD_CHANNEL) {
+    if (blockActive && pitch == blockRoot) {
+      chordOff(blockNotes, blockCount, MIDI_BLOCK_CHORD_CHANNEL);
+      blockCount = 0;
+      blockActive = false;
+    }
+  } else {
+    MIDI.sendNoteOff(pitch, velocity, channel);
   }
 }
