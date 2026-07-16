@@ -81,28 +81,33 @@ static inline int buildStrumChord(uint8_t pitch, int chordSelection, int inversi
     return count;
 }
 
-// Block channel: root + this-channel's voices (transposed, 2x inversion) + octave
-// copies above/below, packed with no gaps. Returns how many notes were written
-// (<= MAXIMUM_CHORD_SIZE); `out` must have room for MAXIMUM_CHORD_SIZE bytes.
+// Block channel: the notes to ADD around the incoming note — this channel's chord
+// voices (transposed, with 2x inversion) plus octave copies of the fundamental and
+// of each voice, above and below. Returns how many were written (<= MAXIMUM_CHORD_SIZE);
+// `out` must have room for MAXIMUM_CHORD_SIZE bytes.
 //
-// This is the fix: voices come from THIS pitch via buildChordVoices, not from the
-// strum channel's leftover buffer. Depends only on its arguments.
+// The fundamental itself (the incoming pitch) is deliberately NOT emitted: MIDI Thru
+// passes the incoming note straight through, so sending it here too would double it.
+// Voices come from THIS pitch via buildChordVoices (the block-buffer fix); depends
+// only on its arguments.
 static inline int buildBlockChord(uint8_t pitch, int chordSelection, int inversionSelection2,
                                   bool isMinor, int key, int transpose, uint8_t *out) {
     uint8_t voices[VOICES];
     int count = buildChordVoices(pitch, chordSelection, isMinor, key, voices);
 
-    out[0] = pitch;                                  // root
+    uint8_t tv[VOICES];                              // transposed, inverted voices
     for (int k = 0; k < count; k++) {
-        out[1 + k] = uint8_t(int(voices[k]) + transpose + 2 * inversions[inversionSelection2][k]);
+        tv[k] = uint8_t(int(voices[k]) + transpose + 2 * inversions[inversionSelection2][k]);
     }
-    int filled = 1 + count;                          // real notes so far (<= 4)
 
-    // Octave-expand each real note (+12 then -12), packed, up to the buffer.
-    int w = filled;
-    for (int j = 0; j < filled && w < MAXIMUM_CHORD_SIZE; j++) {
-        out[w++] = uint8_t(int(out[j]) + 12);
-        if (w < MAXIMUM_CHORD_SIZE) { out[w++] = uint8_t(int(out[j]) - 12); }
+    int w = 0;
+    for (int k = 0; k < count && w < MAXIMUM_CHORD_SIZE; k++) out[w++] = tv[k];
+    // octaves of the fundamental (the root note itself is Thru's job), then each voice
+    if (w < MAXIMUM_CHORD_SIZE) out[w++] = uint8_t(int(pitch) + 12);
+    if (w < MAXIMUM_CHORD_SIZE) out[w++] = uint8_t(int(pitch) - 12);
+    for (int k = 0; k < count; k++) {
+        if (w < MAXIMUM_CHORD_SIZE) out[w++] = uint8_t(int(tv[k]) + 12);
+        if (w < MAXIMUM_CHORD_SIZE) out[w++] = uint8_t(int(tv[k]) - 12);
     }
     return w;
 }

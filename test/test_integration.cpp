@@ -36,25 +36,26 @@ int main() {
   handleNoteOn(MIDI_BLOCK_CHORD_CHANNEL, 60, 100);
 
   std::vector<int> got = blockNotesOn();
-  const int want[] = {60, 40, 43, 46, 72, 48, 52, 28, 55, 31, 58, 34};
+  // No root here — Thru sends the fundamental (60). The handler emits the added
+  // voices + octaves, built from 60's OWN chord.
+  const int want[] = {40, 43, 46, 72, 48, 52, 28, 55, 31, 58, 34};
 
-  bool ok = (got.size() == 12);
-  for (size_t i = 0; ok && i < 12; i++) ok = (got[i] == want[i]);
+  bool ok = (got.size() == 11);
+  for (size_t i = 0; ok && i < 11; i++) ok = (got[i] == want[i]);
 
   if (!ok) {
     printf("FAIL block chord wiring\n  got [");
     for (size_t i = 0; i < got.size(); i++) printf("%d ", got[i]);
     printf("]\n  want[");
-    for (int i = 0; i < 12; i++) printf("%d ", want[i]);
+    for (int i = 0; i < 11; i++) printf("%d ", want[i]);
     printf("]\n");
     return 1;
   }
 
-  // The smoking gun: root is the block channel's own pitch, and voices come from
-  // 60's chord (40,43,46), NOT from the strummed 72's chord (which gave 52,55,58).
-  assert(got[0] == 60 && "root follows the block channel's own note");
-  assert(got[1] == 40 && got[2] == 43 && got[3] == 46 && "voices from THIS pitch");
-  assert(!(got[1] == 52 && got[2] == 55 && got[3] == 58) && "must not leak the strum chord");
+  // The smoking gun: voices come from 60's own chord (40,43,46), NOT from the
+  // strummed 72's chord (which would give 52,55,58).
+  assert(got[0] == 40 && got[1] == 43 && got[2] == 46 && "voices from THIS pitch");
+  assert(!(got[0] == 52 && got[1] == 55 && got[2] == 58) && "must not leak the strum chord");
 
   printf("ok   block chord built from its own pitch, independent of strum (real .ino)\n");
   printf("\nintegration test passed\n");

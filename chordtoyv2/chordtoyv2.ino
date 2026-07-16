@@ -90,6 +90,12 @@ void setup() {
   MIDI.setHandleNoteOn(handleNoteOn);
   MIDI.setHandleNoteOff(handleNoteOff);
 //  MIDI.begin(MIDI_STRUM_CHANNEL); //bypass only works with this one channel. TODO: research MIDI Library more
+  // OMNI so we see (and can transform) notes on every channel. MIDI Thru is left ON
+  // (library default, Thru::Full): it copies every incoming message straight to the
+  // output. That is what provides ALL pass-through (bypass and unhandled channels)
+  // and the fundamental root note under each chord. The handlers only ADD generated
+  // voices on top, so nothing gets doubled. Do NOT turnThruOff() without also
+  // re-adding the roots and pass-through by hand. (Closes issue #2.)
   MIDI.begin(MIDI_CHANNEL_OMNI);
   pollInputs();
   toggleBank();
@@ -202,14 +208,11 @@ void pollInputs() {
 }
 
 void handleNoteOn(byte channel, byte pitch, byte velocity) {
-  // Pass through anything we don't handle (and everything when bypassed).
-  if ((channel != MIDI_BLOCK_CHORD_CHANNEL && channel != MIDI_STRUM_CHANNEL) || bypass == true) {
-    MIDI.sendNoteOn(pitch, velocity, channel);
-    return;
-  }
+  // In bypass we generate nothing; MIDI Thru passes the raw note straight through.
+  if (bypass == true) return;
 
   if (channel == MIDI_STRUM_CHANNEL) {
-    // a new trigger replaces the sounding strum chord: turn the old notes off first
+    // a new trigger replaces the sounding strum chord: turn the old voices off first
     chordOff(strumNotes, strumCount, MIDI_STRUM_CHANNEL);
     strumCount = buildStrumChord(pitch, chordSelection, inversionSelection, isMinor, key, strumNotes);
     strumRoot = pitch;
@@ -217,14 +220,15 @@ void handleNoteOn(byte channel, byte pitch, byte velocity) {
     cur = 0;                 // loop() strums strumNotes[0..strumCount) out over time
     vel = velocity;
     trigPrevMillis = millis();
-  }
-
-  if (channel == MIDI_BLOCK_CHORD_CHANNEL) {
+  } else if (channel == MIDI_BLOCK_CHORD_CHANNEL) {
     // replace the sounding block chord
     chordOff(blockNotes, blockCount, MIDI_BLOCK_CHORD_CHANNEL);
-    blockCount = buildBlockChord(pitch, chordSelection, inversionSelection2, isMinor, key,
-                                 TRNSPS_2ND_CHAN, blockNotes);
-    if (chordSize < blockCount) { blockCount = chordSize; }   // Size pot truncates
+    int added = buildBlockChord(pitch, chordSelection, inversionSelection2, isMinor, key,
+                                TRNSPS_2ND_CHAN, blockNotes);
+    // Size pot is total voices INCLUDING the Thru-provided root, so we add size-1.
+    blockCount = chordSize - 1;
+    if (blockCount > added) { blockCount = added; }
+    if (blockCount < 0)     { blockCount = 0; }
     blockRoot = pitch;
     blockActive = true;
     for (int k = 0; k < blockCount; k++) {
@@ -232,13 +236,12 @@ void handleNoteOn(byte channel, byte pitch, byte velocity) {
       Serial.flush();
     }
   }
+  // other channels: MIDI Thru handles pass-through; nothing to do
 }
 
 void handleNoteOff(byte channel, byte pitch, byte velocity) {
-  if (bypass == true) {
-    MIDI.sendNoteOff(pitch, velocity, channel);
-    return;
-  }
+  // In bypass, Thru passes the raw NoteOff through; nothing to do here.
+  if (bypass == true) return;
 
   if (channel == MIDI_STRUM_CHANNEL) {
     // Only the note that started the current strum can end it. A release for a
@@ -258,7 +261,6 @@ void handleNoteOff(byte channel, byte pitch, byte velocity) {
       blockCount = 0;
       blockActive = false;
     }
-  } else {
-    MIDI.sendNoteOff(pitch, velocity, channel);
   }
+  // other channels: MIDI Thru handles pass-through; nothing to do
 }

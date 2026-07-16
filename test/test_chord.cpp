@@ -52,32 +52,31 @@ int main() {
       expect("strum minor+interval5 -> majorBank (v1 quirk)", buf, n, want, 3); }
 
     // --- BLOCK channel: characterization ----------------------------------------
-    // root=60, voices from 60's own chord {64,67,70} transposed -24, then octaves.
-    { const uint8_t want[] = {60, 40, 43, 46, 72, 48, 52, 28, 55, 31, 58, 34};
+    // Voices from 60's own chord {64,67,70} transposed -24, then octaves of the
+    // fundamental and each voice. The root (60) itself is NOT here — Thru sends it.
+    { const uint8_t want[] = {40, 43, 46, 72, 48, 52, 28, 55, 31, 58, 34};
       int n = buildBlockChord(60, 3, /*inv2*/0, false, 0, /*transpose*/-24, buf);
-      expect("block C major full expansion", buf, n, want, 12); }
+      expect("block C major, root omitted (Thru owns it)", buf, n, want, 11); }
 
-    // Small chord (1 voice) packs with NO gaps/garbage — the old fixed-index
-    // expansion left stale/invalid slots here.
-    { const uint8_t want[] = {60, 43, 72, 48, 55, 31};
+    // Small chord (1 voice) packs with NO gaps/garbage.
+    { const uint8_t want[] = {43, 72, 48, 55, 31};
       int n = buildBlockChord(60, /*chordSelection*/1, 0, false, 0, -24, buf);
-      expect("block 1-voice packs cleanly (6 notes)", buf, n, want, 6);
+      expect("block 1-voice packs cleanly (5 notes)", buf, n, want, 5);
       for (int i = 0; i < n; i++) assert(buf[i] <= 127 && "valid MIDI note"); }
 
     // --- THE FIX: block chord depends only on its own pitch ----------------------
     // Reproduce the old failure mode: strum a DIFFERENT pitch first. Pre-fix, the
-    // block chord read the strum buffer, so its voices would be 72's chord (-24):
-    // {60, 52, 55, 58, ...}. Post-fix it must be 60's own chord: {60, 40, 43, 46}.
+    // block voices read the strum buffer, so they'd be 72's chord (-24): {52,55,58}.
+    // Post-fix they must be 60's own chord: {40, 43, 46}.
     (void)buildStrumChord(72, 3, 0, false, 0, buf);       // pollute any shared state
     { uint8_t block[MAXIMUM_CHORD_SIZE];
       int n = buildBlockChord(60, 3, 0, false, 0, -24, block);
-      assert(block[0] == 60 && "root is the block channel's own pitch");
-      const uint8_t buggy[] = {60, 52, 55, 58};           // what reading strum's buffer gave
+      const uint8_t buggy[] = {52, 55, 58};               // what reading strum's buffer gave
       bool matchesBuggy = true;
-      for (int i = 0; i < 4; i++) matchesBuggy = matchesBuggy && (block[i] == buggy[i]);
-      assert(!matchesBuggy && "block chord must NOT track the strum channel");
-      const uint8_t want[] = {60, 40, 43, 46, 72, 48, 52, 28, 55, 31, 58, 34};
-      expect("block independent of prior strum (regression proof)", block, n, want, 12); }
+      for (int i = 0; i < 3; i++) matchesBuggy = matchesBuggy && (block[i] == buggy[i]);
+      assert(!matchesBuggy && "block voices must NOT track the strum channel");
+      const uint8_t want[] = {40, 43, 46, 72, 48, 52, 28, 55, 31, 58, 34};
+      expect("block independent of prior strum (regression proof)", block, n, want, 11); }
 
     if (failures) { printf("\n%d test(s) FAILED\n", failures); return 1; }
     printf("\nall tests passed\n");

@@ -76,7 +76,7 @@ int main() {
   handleNoteOff(MIDI_BLOCK_CHORD_CHANNEL, 60, 0);    // 60 already superseded
   {
     Synth s;
-    check(s.soundingOn(MIDI_BLOCK_CHORD_CHANNEL) == blockCount && s.isOn(MIDI_BLOCK_CHORD_CHANNEL, 64),
+    check(blockCount > 0 && s.soundingOn(MIDI_BLOCK_CHORD_CHANNEL) == blockCount,
           "releasing superseded note leaves the replacing chord sounding");
   }
   handleNoteOff(MIDI_BLOCK_CHORD_CHANNEL, 64, 0);    // owner
@@ -114,6 +114,29 @@ int main() {
   bypass = true;          // pollInputs would set this; loop() sees the change and clears
   loop();
   check(Synth().sounding() == 0, "engaging bypass clears sounding notes");
+
+  // 9) Thru owns pass-through: while bypassed, the handler emits NOTHING (Thru
+  //    carries the raw notes; emitting them here too would double every note).
+  resetToy();
+  bypass = true;
+  handleNoteOn(MIDI_STRUM_CHANNEL, 60, 100);
+  handleNoteOn(MIDI_BLOCK_CHORD_CHANNEL, 64, 100);
+  handleNoteOff(MIDI_STRUM_CHANNEL, 60, 0);
+  handleNoteOff(MIDI_BLOCK_CHORD_CHANNEL, 64, 0);
+  check(midiLog.size() == 0, "bypass: handler is silent, Thru passes the notes");
+
+  // 10) A channel we don't process is left entirely to Thru.
+  resetToy();
+  handleNoteOn(7, 60, 100);
+  handleNoteOff(7, 60, 0);
+  check(midiLog.size() == 0, "unhandled channel: handler is silent, Thru passes it");
+
+  // 11) Block channel no longer emits the fundamental (Thru does) — so it isn't
+  //     doubled. The added voices are present; the incoming pitch is not.
+  resetToy();
+  handleNoteOn(MIDI_BLOCK_CHORD_CHANNEL, 60, 100);
+  check(!Synth().isOn(MIDI_BLOCK_CHORD_CHANNEL, 60) && Synth().soundingOn(MIDI_BLOCK_CHORD_CHANNEL) == blockCount,
+        "block: fundamental left to Thru, not re-sent");
 
   if (failures) { printf("\n%d note-off test(s) FAILED\n", failures); return 1; }
   printf("\nnote-off tests passed\n");
